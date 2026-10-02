@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>KSG Live</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; background:#111; color:#eee; font:16px system-ui; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px; }
+  .card { background:#1c1c1c; border:1px solid #333; border-radius:12px; padding:32px; max-width:440px; width:100%; }
+  label { display:block; text-align:left; font-size:13px; opacity:0.7; margin:16px 0 6px; }
+  input, select { width:100%; padding:14px; font-size:16px; border:1px solid #444; background:#0d0d0d; color:#eee; border-radius:8px; outline:none; font-family:inherit; }
+  input:focus, select:focus { border-color:#2d6cdf; }
+  .pw-wrap { position:relative; }
+  .pw-wrap input { padding-right:46px; }
+  .pw-eye { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:transparent; border:0; cursor:pointer; font-size:20px; padding:6px 10px; color:#ccc; border-radius:6px; }
+  button.primary { width:100%; padding:16px; margin-top:20px; font-size:17px; border:0; border-radius:8px; background:#2d6cdf; color:#fff; cursor:pointer; font-weight:500; }
+  button.primary:disabled { opacity:0.4; cursor:default; }
+  button.secondary { padding:10px 20px; font-size:14px; border:0; border-radius:6px; background:#333; color:#eee; cursor:pointer; margin:6px; }
+  #error, #cpError { color:#f88; font-size:14px; margin-top:14px; min-height:20px; text-align:center; }
+  #login, #classPicker, #changePw, #viewer, #sender { display:none; }
+  #login.show, #classPicker.show, #changePw.show, #sender.show { display:flex; flex-direction:column; align-items:center; }
+  #viewer.show { display:flex; position:fixed; inset:0; background:#000; }
+  .pw-hint { font-size:12px; opacity:0.5; margin-top:6px; }
+  .pw-hint.ok { color:#6c6; }
+  .pw-hint.bad { color:#e88; }
+  #secBanner { position:fixed; top:0; left:0; right:0; background:#a33; color:#fff; font-size:13px; padding:6px 12px; text-align:center; z-index:200; display:none; }
+  #secBanner.show { display:block; }
+  #stage { flex:1; position:relative; display:flex; overflow:hidden; }
+  #rv { width:100%; height:100%; object-fit:contain; display:none; }
+  #waiting { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#aaa; font-size:22px; z-index:5; background:#000; }
+  #waiting.hidden { display:none; }
+  #vstatus { position:absolute; bottom:10px; left:10px; font:13px monospace; opacity:0.7; background:rgba(0,0,0,0.5); padding:4px 10px; border-radius:4px; z-index:20; }
+  #vctrl { position:absolute; top:10px; right:10px; z-index:30; display:flex; gap:8px; background:rgba(0,0,0,0.6); padding:6px 10px; border-radius:6px; align-items:center; }
+  #vctrl button { font-size:14px; padding:6px 12px; border:0; border-radius:4px; background:#2d6cdf; color:#fff; cursor:pointer; }
+  #vol { width:90px; }
+  #exitBtn { position:absolute; top:10px; left:10px; z-index:30; font-size:13px; padding:6px 12px; background:rgba(180,40,40,0.8); color:#fff; border:0; border-radius:4px; cursor:pointer; }
+  #sender { text-align:center; }
+  #sender button.start { font-size:20px; padding:16px 40px; border:0; border-radius:8px; background:#2d6cdf; color:#fff; cursor:pointer; margin:6px; }
+  #sender button:disabled { opacity:0.5; }
+  #sender .secondary { background:#444; font-size:15px; padding:10px 20px; color:#fff; border:0; border-radius:6px; cursor:pointer; margin:6px; }
+  #slog { margin-top:20px; font-family:monospace; font-size:13px; opacity:0.8; max-width:640px; text-align:center; }
+  #sstats { margin-top:8px; font-family:monospace; font-size:12px; opacity:0.6; }
+  #smode { margin-top:10px; font-size:14px; color:#8cf; font-weight:bold; }
+  #ssources { margin-top:6px; font-size:13px; color:#aaa; }
+  #sender video { display:none; }
+  #preview { position:fixed; bottom:12px; right:12px; width:280px; background:#000; border:2px solid #2d6cdf; border-radius:6px; z-index:50; display:none; }
+  #pv { width:100%; display:block; }
+</style>
+</head>
+<body>
+<div id="secBanner">Your screen is being shared</div>
+<div id="loadingScreen" style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+  <div style="display:flex;align-items:center;justify-content:center;gap:14px;">
+    <img src="logo.png" style="height:60px;">
+    <div style="font-size:26px;font-weight:600;letter-spacing:1px;">KSG LIVE</div>
+  </div>
+  <div style="opacity:0.6;">Loading...</div>
+</div>
+<div id="login">
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:20px;">
+      <img src="logo.png" style="height:60px;">
+      <div style="font-size:26px;font-weight:600;letter-spacing:1px;">KSG LIVE</div>
+    </div>
+    <label>Your KSG email</label>
+    <input id="emailInput" type="email" placeholder="name@ksg.ac.ke">
+    <label>Password</label>
+    <div class="pw-wrap"><input id="pwInput" type="password"><button class="pw-eye" data-target="pwInput">👁</button></div>
+    <button id="goBtn" class="primary">Sign in</button>
+    <div id="error"></div>
+  </div>
+</div>
+<div id="changePw">
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:20px;">
+      <img src="logo.png" style="height:60px;">
+      <div style="font-size:26px;font-weight:600;letter-spacing:1px;">KSG LIVE</div>
+    </div>
+    <h2 style="text-align:center;margin:0 0 8px;font-weight:500;font-size:18px;">Change your password</h2>
+    <p style="text-align:center;opacity:0.7;font-size:14px;">You must set a new password before continuing.</p>
+    <label>Current password</label>
+    <div class="pw-wrap"><input id="curPw" type="password"><button class="pw-eye" data-target="curPw">👁</button></div>
+    <label>New password</label>
+    <div class="pw-wrap"><input id="newPw" type="password"><button class="pw-eye" data-target="newPw">👁</button></div>
+    <div id="pwRules" class="pw-hint">Minimum 8 characters, letter + number.</div>
+    <label>Confirm</label>
+    <div class="pw-wrap"><input id="confPw" type="password"><button class="pw-eye" data-target="confPw">👁</button></div>
+    <button id="changeBtn" class="primary">Save</button>
+    <div id="cpError"></div>
+  </div>
+</div>
+<div id="classPicker">
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:20px;">
+      <img src="logo.png" style="height:60px;">
+      <div style="font-size:26px;font-weight:600;letter-spacing:1px;">KSG LIVE</div>
+    </div>
+    <h2 style="text-align:center;margin:0 0 8px;font-weight:500;font-size:18px;">Choose your class</h2>
+    <div id="whoami" style="font-size:13px;opacity:0.6;text-align:center;"></div>
+    <label>Class</label>
+    <select id="classSel"></select>
+    <button id="enterBtn" class="primary">Enter</button>
+    <button id="logoutBtn" class="secondary" style="width:100%;margin-top:16px;">Sign out</button>
+  </div>
+</div>
+<div id="viewer">
+  <div id="stage">
+    <video id="rv" autoplay playsinline></video>
+    <div id="waiting"><div>Waiting for presenter...</div></div>
+    <div id="vstatus">Connecting...</div>
+    <button id="exitBtn">Exit</button>
+    <div id="vctrl">
+      <button id="fullBtn">Fullscreen</button>
+      <button id="muteBtnV">Sound On</button>
+      <input id="vol" type="range" min="0" max="100" value="100">
+    </div>
+  </div>
+</div>
+<div id="sender">
+  <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:16px;">
+    <img src="logo.png" style="height:50px;">
+    <div style="font-size:22px;font-weight:600;letter-spacing:1px;">KSG LIVE</div>
+  </div>
+  <div id="sclass" style="font-size:14px;opacity:0.6;margin-bottom:16px;"></div>
+  <button id="start" class="start">Start Sharing</button>
+  <button id="muteBtn" class="secondary" disabled>Mute Mic</button>
+  <button id="exitBtn2" class="secondary">Exit</button>
+  <div id="smode">Mode: idle</div>
+  <div id="ssources">Sources: -</div>
+  <div id="slog">Click Start Sharing. Pick Entire Screen. Tick "Share system audio".</div>
+  <div id="sstats"></div>
+  <video id="v" autoplay muted playsinline></video>
+  <div id="preview"><video id="pv" autoplay muted playsinline></video></div>
+</div>
+<script>
+document.querySelectorAll(".pw-eye").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const inp = document.getElementById(btn.dataset.target);
+    const show = inp.type === "password";
+    inp.type = show ? "text" : "password";
+    btn.textContent = show ? "🙈" : "👁";
+  });
+});
+function validatePassword(pw) {
+  if (!pw) return "Cannot be empty";
+  if (pw.length < 8) return "Min 8 characters";
+  if (!/[A-Za-z]/.test(pw)) return "Need a letter";
+  if (!/[0-9]/.test(pw)) return "Need a number";
+  return null;
+}
+function updatePwHint() {
+  const pw = document.getElementById("newPw").value;
+  const hint = document.getElementById("pwRules");
+  if (!pw) { hint.textContent = "Min 8 characters, letter + number."; hint.className = "pw-hint"; return; }
+  const err = validatePassword(pw);
+  hint.textContent = err ? "X " + err : "OK";
+  hint.className = "pw-hint " + (err ? "bad" : "ok");
+}
+document.getElementById("newPw").addEventListener("input", updatePwHint);
+
+let USER_EMAIL = "", USER_ROLE = "", USER_CLASSES = [], CLASS = "";
+let sigSince = 0, streaming = false, micMuted = false;
+let pc = null;
+const peers = {};
+const ICE = [];
+const viewerId = "v-" + Math.random().toString(36).slice(2, 10);
+const el = id => document.getElementById(id);
+function show(e) { e.classList.add("show"); }
+function hide(e) { e.classList.remove("show"); }
+
+(async function boot() {
+  try {
+    const r = await fetch("me.php"); const d = await r.json();
+    if (d.authenticated) {
+      USER_EMAIL = d.email; USER_ROLE = d.role; USER_CLASSES = d.classes || [];
+      el("loadingScreen").style.display = "none";
+      if (d.mustChangePassword) show(el("changePw")); else showClassPicker();
+      return;
+    }
+  } catch(e) {}
+  el("loadingScreen").style.display = "none";
+  show(el("login")); el("emailInput").focus();
+})();
+
+el("goBtn").addEventListener("click", doLogin);
+el("pwInput").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+el("emailInput").addEventListener("keydown", e => { if (e.key === "Enter") el("pwInput").focus(); });
+
+async function doLogin() {
+  el("error").textContent = "";
+  const email = el("emailInput").value.trim();
+  const password = el("pwInput").value;
+  if (!email || !password) { el("error").textContent = "Enter email and password"; return; }
+  el("goBtn").disabled = true;
+  try {
+    const fd = new FormData(); fd.append("email", email); fd.append("password", password);
+    const r = await fetch("login.php", { method: "POST", body: fd });
+    const d = await r.json();
+    if (d.error) { el("error").textContent = "Invalid login"; el("goBtn").disabled = false; return; }
+    USER_EMAIL = d.email; USER_ROLE = d.role; USER_CLASSES = d.classes || [];
+    hide(el("login"));
+    if (d.mustChangePassword) {
+      el("curPw").value = password; show(el("changePw")); el("newPw").focus(); updatePwHint();
+    } else showClassPicker();
+  } catch(e) { el("error").textContent = "Cannot reach server"; el("goBtn").disabled = false; }
+}
+
+el("changeBtn").addEventListener("click", async () => {
+  el("cpError").textContent = "";
+  const cur = el("curPw").value, nw = el("newPw").value, cf = el("confPw").value;
+  if (!cur || !nw || !cf) { el("cpError").textContent = "Fill all fields"; return; }
+  const err = validatePassword(nw);
+  if (err) { el("cpError").textContent = err; return; }
+  if (nw !== cf) { el("cpError").textContent = "Passwords do not match"; return; }
+  if (nw === cur) { el("cpError").textContent = "New must differ"; return; }
+  el("changeBtn").disabled = true;
+  try {
+    const fd = new FormData(); fd.append("current", cur); fd.append("new", nw); fd.append("confirm", cf);
+    const r = await fetch("change_password.php", { method: "POST", body: fd });
+    const d = await r.json();
+    if (d.error) { el("cpError").textContent = d.error; el("changeBtn").disabled = false; return; }
+    hide(el("changePw")); showClassPicker();
+  } catch(e) { el("cpError").textContent = "Cannot reach server"; el("changeBtn").disabled = false; }
+});
+
+function showClassPicker() {
+  el("whoami").textContent = USER_EMAIL + " / " + USER_ROLE;
+  el("classSel").innerHTML = "";
+  for (const c of USER_CLASSES) { const o = document.createElement("option"); o.value = c; o.textContent = c; el("classSel").appendChild(o); }
+  show(el("classPicker"));
+}
+
+el("enterBtn").addEventListener("click", () => {
+  CLASS = el("classSel").value;
+  if (!CLASS) return;
+  hide(el("classPicker"));
+  if (USER_ROLE === "presenter" || USER_ROLE === "admin") {
+    el("sclass").textContent = "Class: " + CLASS;
+    el("sclass").style.textAlign = "center";
+    show(el("sender"));
+  } else {
+    el("waiting").firstElementChild.textContent = "Waiting for presenter...";
+    show(el("viewer"));
+    startViewer();
+  }
+});
+
+el("logoutBtn").addEventListener("click", doLogout);
+el("exitBtn").addEventListener("click", doLogout);
+el("exitBtn2").addEventListener("click", doLogout);
+async function doLogout() { try { await fetch("logout.php"); } catch(e) {} location.reload(); }
+
+function sigUrl(extra) { return "signal.php?channel=" + encodeURIComponent(CLASS) + (extra || ""); }
+async function sigSend(obj) {
+  try { await fetch(sigUrl(""), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) }); } catch(e) {}
+}
+async function sigPoll(handler) {
+  let backoff = 300;
+  while (true) {
+    try {
+      const r = await fetch(sigUrl("&since=" + sigSince));
+      if (r.status === 403) { doLogout(); return; }
+      const arr = await r.json();
+      if (Array.isArray(arr)) for (const m of arr) { sigSince = Math.max(sigSince, m.id); handler(m.body); }
+      backoff = 300;
+    } catch(e) { backoff = Math.min(backoff * 1.5, 5000); }
+    await new Promise(r => setTimeout(r, backoff));
+  }
+}
+
+el("muteBtn").addEventListener("click", () => {
+  micMuted = !micMuted;
+  const s = el("v").srcObject;
+  if (s) s.getAudioTracks().forEach(t => t.enabled = !micMuted);
+  el("muteBtn").textContent = micMuted ? "Unmute Mic" : "Mute Mic";
+});
+
+el("start").addEventListener("click", async () => {
+  if (streaming) return;
+  const startBtn = el("start");
+  startBtn.disabled = true;
+
+  let display, mic;
+  try { display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true }); }
+  catch(e) { el("slog").textContent = "Cancelled."; startBtn.disabled = false; return; }
+  try { mic = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch(e) { mic = null; }
+
+  const combined = new MediaStream();
+  display.getVideoTracks().forEach(t => combined.addTrack(t));
+  display.getAudioTracks().forEach(t => combined.addTrack(t));
+  if (mic) mic.getAudioTracks().forEach(t => combined.addTrack(t));
+
+  el("v").srcObject = combined;
+  await el("v").play();
+  el("pv").srcObject = combined;
+  el("preview").style.display = "block";
+  el("secBanner").classList.add("show");
+  streaming = true;
+
+  el("ssources").textContent = "Sources: screen" + (display.getAudioTracks().length ? " + system audio" : "") + (mic ? " + mic" : "");
+  el("muteBtn").disabled = !mic;
+  startBtn.textContent = "Sharing...";
+  el("slog").textContent = "Sharing. Waiting for viewers.";
+  el("smode").textContent = "Mode: WebRTC";
+
+  sigPoll(async (body) => {
+    if (!body) return;
+    if (body.type === "join" && body.from && !peers[body.from]) await newPeer(body.from);
+    else if (body.type === "answer" && body.from && peers[body.from]) { try { await peers[body.from].setRemoteDescription(body.data); } catch(e) {} }
+    else if (body.type === "vcandidate" && body.from && peers[body.from]) { try { await peers[body.from].addIceCandidate(body.data); } catch(e) {} }
+  });
+
+  async function newPeer(vid) {
+    const peer = new RTCPeerConnection({ iceServers: ICE });
+    peers[vid] = peer;
+    el("sstats").textContent = "Viewers: " + Object.keys(peers).length;
+    combined.getTracks().forEach(t => peer.addTrack(t, combined));
+    peer.onicecandidate = e => { if (e.candidate) sigSend({ from: "sender", to: vid, type: "scandidate", data: e.candidate }); };
+    peer.onconnectionstatechange = () => {
+      const st = peer.connectionState;
+      if (st === "failed" || st === "closed" || st === "disconnected") {
+        try { peer.close(); } catch(e) {}
+        delete peers[vid];
+        el("sstats").textContent = "Viewers: " + Object.keys(peers).length;
+      }
+    };
+    const offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+    sigSend({ from: "sender", to: vid, type: "offer", data: { type: offer.type, sdp: offer.sdp } });
+  }
+
+  display.getVideoTracks()[0].addEventListener("ended", () => {
+    streaming = false;
+    startBtn.disabled = false;
+    startBtn.textContent = "Start Sharing";
+    el("preview").style.display = "none";
+    el("secBanner").classList.remove("show");
+    el("smode").textContent = "Mode: idle";
+    Object.keys(peers).forEach(id => { try { peers[id].close(); } catch(e) {} delete peers[id]; });
+  });
+});
+
+function startViewer() {
+  const rv = el("rv"), waiting = el("waiting"), vstatus = el("vstatus");
+  el("fullBtn").addEventListener("click", () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+  });
+  el("muteBtnV").addEventListener("click", () => {
+    rv.muted = !rv.muted;
+    el("muteBtnV").textContent = rv.muted ? "Sound Off" : "Sound On";
+  });
+  el("vol").addEventListener("input", e => { rv.volume = e.target.value / 100; });
+
+  pc = new RTCPeerConnection({ iceServers: ICE });
+  pc.ontrack = (e) => {
+    rv.srcObject = e.streams[0];
+    rv.style.display = "block";
+    waiting.classList.add("hidden");
+    vstatus.textContent = "Live - " + CLASS;
+  };
+  pc.onicecandidate = (e) => { if (e.candidate) sigSend({ from: viewerId, to: "sender", type: "vcandidate", data: e.candidate }); };
+  pc.onconnectionstatechange = () => {
+    const st = pc.connectionState;
+    if (st === "failed" || st === "disconnected" || st === "closed") {
+      rv.style.display = "none";
+      waiting.classList.remove("hidden");
+      waiting.firstElementChild.textContent = "Reconnecting...";
+      vstatus.textContent = "Reconnecting...";
+    }
+  };
+
+  sigSend({ from: viewerId, to: "sender", type: "join" });
+
+  sigPoll(async (body) => {
+    if (!body) return;
+    if (body.to !== viewerId && body.to !== "*") return;
+    if (body.type === "offer") {
+      try {
+        await pc.setRemoteDescription(body.data);
+        const ans = await pc.createAnswer();
+        await pc.setLocalDescription(ans);
+        sigSend({ from: viewerId, to: "sender", type: "answer", data: { type: ans.type, sdp: ans.sdp } });
+      } catch(e) {}
+    } else if (body.type === "scandidate") {
+      try { await pc.addIceCandidate(body.data); } catch(e) {}
+    }
+  });
+}
+</script>
+</body>
+</html>
