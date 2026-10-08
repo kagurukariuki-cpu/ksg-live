@@ -8,7 +8,6 @@
 :root{
   --gold:#c9a227;
   --gold-hi:#e0b93a;
-  --gold-dim:#8a6f1a;
   --green:#1a4d2e;
   --green-hi:#2a7043;
   --red:#bb0000;
@@ -38,17 +37,11 @@ body{
   align-items:center;justify-content:center;padding:24px;
   transition:background .2s,color .2s
 }
-
-/* Kenya flag stripe across the top */
 .flagstripe{
   position:fixed;top:0;left:0;right:0;height:6px;z-index:150;
   background:linear-gradient(to right,
-    #000 0%, #000 25%,
-    #bb0000 25%, #bb0000 50%,
-    #1a4d2e 50%, #1a4d2e 75%,
-    #c9a227 75%, #c9a227 100%)
+    #000 0 25%, #bb0000 25% 50%, #1a4d2e 50% 75%, #c9a227 75% 100%)
 }
-
 .card{
   background:var(--card);border:1px solid var(--border);
   border-radius:20px;padding:36px 28px;max-width:460px;width:100%;
@@ -59,14 +52,11 @@ body{
   content:"";position:absolute;top:0;left:0;right:0;height:4px;
   background:linear-gradient(to right,#000 0 25%,#bb0000 25% 50%,#1a4d2e 50% 75%,#c9a227 75% 100%)
 }
-
 .brand{display:flex;align-items:center;justify-content:center;gap:14px;margin:8px 0 26px}
 .brand img{height:64px}
 .brand .name{font-size:24px;font-weight:800;letter-spacing:2px}
 .brand .name span{color:var(--gold)}
-
 .sub{color:var(--muted);font-size:14px;margin:0 0 22px;letter-spacing:.3px}
-
 .btn{
   width:100%;padding:18px 22px;font-size:17px;font-weight:700;
   border-radius:14px;border:0;cursor:pointer;
@@ -75,43 +65,51 @@ body{
 }
 .btn+.btn{margin-top:12px}
 .btn .ico{font-size:20px}
-
-/* Presenter button — gold gradient */
 .btn.primary{
   background:linear-gradient(135deg,var(--gold) 0%,var(--gold-hi) 100%);
-  color:var(--btn-text);
-  box-shadow:0 6px 18px rgba(201,162,39,.35)
+  color:var(--btn-text);box-shadow:0 6px 18px rgba(201,162,39,.35)
 }
-.btn.primary:hover{
-  transform:translateY(-1px);
-  box-shadow:0 10px 26px rgba(201,162,39,.5)
-}
-.btn.primary:active{transform:translateY(0)}
+.btn.primary:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(201,162,39,.5)}
 .btn.primary:disabled{opacity:.45;cursor:default;transform:none}
-
-/* Viewer button — green gradient */
 .btn.secondary{
   background:linear-gradient(135deg,var(--green) 0%,var(--green-hi) 100%);
-  color:#fff;
-  box-shadow:0 6px 18px rgba(26,77,46,.4)
+  color:#fff;box-shadow:0 6px 18px rgba(26,77,46,.4)
 }
-.btn.secondary:hover{
-  transform:translateY(-1px);
-  box-shadow:0 10px 26px rgba(26,77,46,.55)
-}
+.btn.secondary:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(26,77,46,.55)}
 .btn.secondary:disabled{opacity:.45;cursor:default;transform:none}
-
-/* Exit — red */
 .btn.danger{
   background:linear-gradient(135deg,#8a0000 0%,var(--red) 100%);
   color:#fff;box-shadow:0 6px 18px rgba(187,0,0,.4)
 }
 .btn.danger:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(187,0,0,.55)}
-
+.select{
+  width:100%;padding:18px 20px;font-size:17px;font-weight:600;
+  border-radius:14px;border:2px solid var(--border);
+  background:var(--bg);color:var(--text);font-family:inherit;
+  margin-bottom:12px;cursor:pointer;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--gold) 50%),linear-gradient(135deg,var(--gold) 50%,transparent 50%);
+  background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;
+  background-size:6px 6px,6px 6px;background-repeat:no-repeat;padding-right:44px
+}
+.select:focus{border-color:var(--gold);outline:none}
+.customInput{
+  width:100%;padding:16px 20px;font-size:16px;font-weight:600;
+  border-radius:14px;border:2px dashed var(--gold);
+  background:var(--bg);color:var(--text);font-family:inherit;
+  margin-bottom:16px;text-align:center
+}
+.customInput:focus{border-style:solid;outline:none}
+.customInput::placeholder{color:var(--muted);font-weight:400;font-size:14px}
+.divider{
+  display:flex;align-items:center;gap:12px;color:var(--muted);
+  font-size:12px;letter-spacing:1px;margin:14px 0
+}
+.divider::before,.divider::after{
+  content:"";flex:1;height:1px;background:var(--border)
+}
 .screen{display:none}
 .screen.show{display:flex;flex-direction:column;align-items:center}
-#rolePicker.show{min-height:100vh;justify-content:center;width:100%}
-
+#rolePicker.show,#classPicker.show{min-height:100vh;justify-content:center;width:100%}
 #secBanner{
   position:fixed;top:6px;left:0;right:0;
   background:linear-gradient(90deg,#8a0000,#bb0000,#8a0000);
@@ -119,14 +117,12 @@ body{
   z-index:200;display:none;font-weight:700;letter-spacing:.5px
 }
 #secBanner.show{display:block}
-
 #themeToggle{
   position:fixed;top:18px;right:18px;z-index:100;font-size:18px;
   background:var(--card);border:1px solid var(--border);cursor:pointer;
   padding:10px 14px;border-radius:12px;color:var(--text);transition:all .15s
 }
 #themeToggle:hover{border-color:var(--gold);color:var(--gold)}
-
 #stage{flex:1;position:relative;display:flex;overflow:hidden}
 #rv{width:100%;height:100%;object-fit:contain;display:none}
 #waiting{
@@ -189,8 +185,23 @@ body{
 <div class="name">KSG <span>LIVE</span></div>
 </div>
 <p class="sub">Choose your role to continue</p>
-<button class="btn primary" onclick="setRole('presenter')"><span class="ico">📺</span> I am Presenting</button>
-<button class="btn secondary" onclick="setRole('viewer')"><span class="ico">👁️</span> I am Watching</button>
+<button class="btn primary" onclick="pickRole('presenter')"><span class="ico">📺</span> I am Presenting</button>
+<button class="btn secondary" onclick="pickRole('viewer')"><span class="ico">👁️</span> I am Watching</button>
+</div>
+</div>
+
+<div id="classPicker" class="screen">
+<div class="card">
+<div class="brand">
+<img src="logo.png" alt="KSG">
+<div class="name">KSG <span>LIVE</span></div>
+</div>
+<p class="sub" id="classSub">Choose a class</p>
+<select id="classSel" class="select"></select>
+<div class="divider">OR</div>
+<input id="classCustom" class="customInput" type="text" placeholder="Type your own class name" maxlength="40">
+<button class="btn primary" onclick="enterClass()"><span class="ico">→</span> Enter</button>
+<button class="btn danger" onclick="switchRole()"><span class="ico">↺</span> Back</button>
 </div>
 </div>
 
@@ -215,7 +226,7 @@ body{
 <div id="viewer">
 <div id="stage">
 <video id="rv" autoplay playsinline></video>
-<div id="waiting"><div>⏳</div><div>Waiting for presenter...</div></div>
+<div id="waiting"><div>⏳</div><div id="waitText">Waiting for presenter...</div></div>
 <div id="vstatus">Connecting...</div>
 <button id="exitBtn">Exit</button>
 <div id="vctrl">
@@ -244,28 +255,78 @@ document.getElementById("themeToggle").textContent="☀️";
 
 var params=new URLSearchParams(location.search);
 var ROLE=params.get("role");
-var ROOM=(params.get("room")||"class1").replace(/[^a-zA-Z0-9 _-]/g,"");
+var ROOM=params.get("room")||"";
 var el=function(id){return document.getElementById(id);};
 var viewerId="v-"+Math.random().toString(36).slice(2,10);
 var streaming=false,micMuted=false,sigSince=0;
 var pc=null,peers={},ICE=[{urls:"stun:stun.l.google.com:19302"}];
 
-function setRole(r){
-var u=new URL(location.href);
-u.searchParams.set("role",r);
-u.searchParams.set("room",ROOM);
-location.href=u.toString();
-}
 function show(e){e.classList.add("show");}
 function hide(e){e.classList.remove("show");}
+function setRoomLocal(r){try{localStorage.setItem("ksg-room",r);}catch(e){}}
+function getRoomLocal(){try{return localStorage.getItem("ksg-room")||"";}catch(e){return "";}}
 
-if(!ROLE){show(el("rolePicker"));}
-else if(ROLE==="presenter"){
+function pickRole(r){
+var u=new URL(location.href);
+u.searchParams.set("role",r);
+u.searchParams.delete("room");
+location.href=u.toString();
+}
+function switchRole(){
+var u=new URL(location.href);
+u.searchParams.delete("role");
+u.searchParams.delete("room");
+location.href=u.toString();
+}
+function enterClass(){
+var custom=(el("classCustom").value||"").trim().replace(/[^a-zA-Z0-9 _-]/g,"");
+var v=custom || el("classSel").value;
+if(!v)return;
+setRoomLocal(v);
+var u=new URL(location.href);
+u.searchParams.set("role",ROLE);
+u.searchParams.set("room",v);
+location.href=u.toString();
+}
+
+if(!ROLE){
+show(el("rolePicker"));
+}else if(!ROOM){
+el("classSub").textContent=(ROLE==="presenter"?"Which class are you presenting to?":"Which class are you watching?");
+fetch("rooms.php")
+.then(function(r){return r.json();})
+.then(function(list){
+var sel=el("classSel");
+sel.innerHTML="";
+if(!list||list.length===0){list=["Class 1","Class 2","Class 3"];}
+for(var i=0;i<list.length;i++){
+var o=document.createElement("option");
+o.value=list[i];o.textContent=list[i];
+sel.appendChild(o);
+}
+var saved=getRoomLocal();
+if(saved){
+for(var j=0;j<sel.options.length;j++){
+if(sel.options[j].value===saved){sel.selectedIndex=j;break;}
+}
+el("classCustom").value=saved;
+}
+})
+.catch(function(){
+var sel=el("classSel");
+sel.innerHTML="";
+["Class 1","Class 2","Class 3"].forEach(function(n){
+var o=document.createElement("option");o.value=n;o.textContent=n;sel.appendChild(o);
+});
+});
+show(el("classPicker"));
+}else if(ROLE==="presenter"){
 el("sclass").textContent="Room: "+ROOM;
 show(el("sender"));
 el("shareLink").textContent=location.origin+location.pathname+"?role=viewer&room="+encodeURIComponent(ROOM);
 setupSender();
 }else{
+el("waitText").textContent="Waiting for presenter in "+ROOM+"...";
 show(el("viewer"));
 setupViewer();
 }
@@ -300,8 +361,8 @@ var s=el("v").srcObject;
 if(s)s.getAudioTracks().forEach(function(t){t.enabled=!micMuted;});
 el("muteBtn").innerHTML='<span class="ico">'+(micMuted?"🔇":"🎤")+'</span> '+(micMuted?"Unmute Mic":"Mute Mic");
 });
-el("exitBtn2").addEventListener("click",function(){location.href=location.pathname;});
-el("exitBtn").addEventListener("click",function(){location.href=location.pathname;});
+el("exitBtn2").addEventListener("click",switchRole);
+el("exitBtn").addEventListener("click",switchRole);
 
 function setupSender(){
 el("start").addEventListener("click",function(){
@@ -407,7 +468,7 @@ var st=pc.connectionState;
 if(st==="failed"||st==="disconnected"||st==="closed"){
 rv.style.display="none";
 waiting.classList.remove("hidden");
-waiting.lastElementChild.textContent="Reconnecting...";
+el("waitText").textContent="Reconnecting...";
 vstatus.textContent="Reconnecting...";
 }
 };
