@@ -370,7 +370,7 @@ if(streaming)return;
 var startBtn=el("start");
 startBtn.disabled=true;
 
-navigator.mediaDevices.getDisplayMedia({video:{frameRate:30},audio:true})
+navigator.mediaDevices.getDisplayMedia({video:{frameRate:30,width:{ideal:1920},height:{ideal:1080}},audio:true})
 .then(function(display){
 return navigator.mediaDevices.getUserMedia({audio:true})
 .then(function(mic){return {display:display,mic:mic};})
@@ -378,7 +378,7 @@ return navigator.mediaDevices.getUserMedia({audio:true})
 })
 .then(function(res){
 var combined=new MediaStream();
-res.display.getVideoTracks().forEach(function(t){combined.addTrack(t);});
+res.display.getVideoTracks().forEach(function(t){t.contentHint="detail";combined.addTrack(t);});
 res.display.getAudioTracks().forEach(function(t){combined.addTrack(t);});
 if(res.mic)res.mic.getAudioTracks().forEach(function(t){combined.addTrack(t);});
 
@@ -409,7 +409,16 @@ function newPeer(vid,stream){
 var peer=new RTCPeerConnection({iceServers:ICE});
 peers[vid]=peer;
 el("sstats").textContent="Viewers: "+Object.keys(peers).length;
-stream.getTracks().forEach(function(t){peer.addTrack(t,stream);});
+stream.getTracks().forEach(function(t){
+var sender=peer.addTrack(t,stream);
+if(t.kind==="video"){
+var p=sender.getParameters();
+if(!p.encodings)p.encodings=[{}];
+p.encodings[0].maxBitrate=8000000;
+p.encodings[0].maxFramerate=30;
+try{sender.setParameters(p);}catch(e){}
+}
+});
 peer.onicecandidate=function(e){if(e.candidate)sigSend({from:"sender",to:vid,type:"scandidate",data:e.candidate});};
 peer.onconnectionstatechange=function(){
 var st=peer.connectionState;
