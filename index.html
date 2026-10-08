@@ -104,7 +104,6 @@ var ICE = [
 
 var RTC_CFG = {
   iceServers: ICE,
-  iceCandidatePoolSize: 4,
   bundlePolicy: "max-bundle",
   rtcpMuxPolicy: "require"
 };
@@ -223,7 +222,13 @@ function sigPoll(handler){
 }
 
 function updateViewerCount(){
-  var n = Object.keys(peers).length;
+  var n = 0;
+  for (var k in peers) {
+    if (peers.hasOwnProperty(k)) {
+      var st = peers[k].pc.connectionState || peers[k].pc.iceConnectionState;
+      if (st === "connected" || st === "connecting" || st === "checking" || st === "new") n++;
+    }
+  }
   $("viewerCount").textContent = n + " viewer" + (n === 1 ? "" : "s") + " connected";
 }
 
@@ -286,29 +291,51 @@ function setupSender(){
     .catch(function(){ $("startBtn").disabled = false; });
   };
 
-  function stopSharing(){
-    streaming = false;
-    $("startBtn").disabled = false;
-    $("startBtn").textContent = "Start Sharing";
-    $("preview").classList.add("hidden");
-    $("senderInfo").textContent = "Mode: idle";
-    Object.keys(peers).forEach(function(id){
+  // Housekeeping: kill peers that never connected and are older than 60s
+  setInterval(function(){
+    var now = Date.now();
+    var changed = false;
+    for (var vid in peers) {
+      if (!peers.hasOwnProperty(vid)) continue;
+      var e = peers[vid];
+      var st = e.pc.connectionState || e.pc.iceConnectionState;
+      var dead = (st === "failed" || st === "closed" || st === "disconnected");
+      var tooOld = (!e.connected && now - e.startedAt > 60000);
+      if (dead || tooOld) {
+        try { e.pc.close(); } catch(ex){}
+        delete peers[vid];
+        changed = true;
+      }
+    }
+    if (changed) updateViewerCount();
+  }, 5000);
+}
+
+function stopSharing(){
+  streaming = false;
+  $("startBtn").disabled = false;
+  $("startBtn").textContent = "Start Sharing";
+  $("preview").classList.add("hidden");
+  $("senderInfo").textContent = "Mode: idle";
+  for (var id in peers) {
+    if (peers.hasOwnProperty(id)) {
       try { peers[id].pc.close(); } catch(e){}
       delete peers[id];
-    });
-    updateViewerCount();
-    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-    if (senderCombined) {
-      senderCombined.getTracks().forEach(function(t){ try{ t.stop(); }catch(e){} });
     }
-    senderCombined = null;
   }
+  updateViewerCount();
+  if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+  if (senderCombined) {
+    senderCombined.getTracks().forEach(function(t){ try{ t.stop(); }catch(e){} });
+  }
+  senderCombined = null;
 }
 
 function handleSenderSignal(body){
   if (!body || !senderCombined || !streaming) return;
 
   if (body.type === "join" && body.from) {
+    // Always (re)build the peer for this viewerId
     newPeer(body.from);
 
   } else if (body.type === "answer" && body.from && peers[body.from]) {
@@ -335,18 +362,16 @@ function handleSenderSignal(body){
 }
 
 function newPeer(vid){
+  // Always tear down any existing peer for this viewer and start fresh.
+  // This handles the case where the viewer reset its pc but kept the same id.
   var existing = peers[vid];
   if (existing) {
-    var st = existing.pc.connectionState || existing.pc.iceConnectionState;
-    if (st !== "failed" && st !== "closed" && st !== "disconnected") {
-      return;
-    }
     try { existing.pc.close(); } catch(e){}
     delete peers[vid];
   }
 
   var peer = new RTCPeerConnection(RTC_CFG);
-  var entry = { pc: peer, pending: [], startedAt: Date.now() };
+  var entry = { pc: peer, pending: [], startedAt: Date.now(), connected: false };
   peers[vid] = entry;
   updateViewerCount();
 
@@ -356,12 +381,21 @@ function newPeer(vid){
 
   peer.onicecandidate = function(e){
     if (e.candidate) {
-      sigSend({from:"sender", to:vid, type:"scandidate", data: e.candidate.toJSON ? e.candidate.toJSON() : e.candidate});
+      sigSend({
+        from: "sender",
+        to: vid,
+        type: "scandidate",
+        data: e.candidate.toJSON ? e.candidate.toJSON() : e.candidate
+      });
     }
   };
 
   peer.onconnectionstatechange = function(){
     var s = peer.connectionState || peer.iceConnectionState;
+    if (s === "connected" || s === "completed") {
+      entry.connected = true;
+      updateViewerCount();
+    }
     if (s === "failed" || s === "closed") {
       try { peer.close(); } catch(e){}
       if (peers[vid] && peers[vid].pc === peer) {
@@ -371,7 +405,7 @@ function newPeer(vid){
     }
   };
 
-  peer.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })
+  peer.createOffer()
   .then(function(offer){
     return peer.setLocalDescription(offer).then(function(){
       sigSend({
@@ -392,8 +426,8 @@ function setupViewer(){
   var muted = true;
   var gotVideo = false;
   var lastVideoTime = Date.now();
-  var stuckSince = 0;
-  var lastReset = 0;
+  var lastJoinSent = 0;
+  var rebuilding = false;
 
   function hideWaiting(){ $("waiting").classList.add("gone"); }
 
@@ -445,33 +479,32 @@ function setupViewer(){
     };
     p.onconnectionstatechange = function(){
       var st = p.connectionState || p.iceConnectionState;
-      if (st === "failed" || st === "closed") {
-        scheduleReset(1500);
+      if (st === "failed") {
+        rebuildPeer();
       }
     };
   }
 
-  function scheduleReset(delay){
-    var now = Date.now();
-    if (now - lastReset < 3000) return;
-    lastReset = now;
-    setTimeout(function(){
-      $("waiting").classList.remove("gone");
-      $("waitText").textContent = "Reconnecting...";
-      resetPeer();
-    }, delay);
-  }
-
-  function resetPeer(){
+  function rebuildPeer(){
+    if (rebuilding) return;
+    rebuilding = true;
     try { if (pc) pc.close(); } catch(e){}
-    viewerId = "v" + Math.random().toString(36).slice(2,10);
     pc = new RTCPeerConnection(RTC_CFG);
     attachHandlers(pc);
-    stuckSince = Date.now();
+    $("waiting").classList.remove("gone");
+    $("waitText").textContent = "Connecting...";
+    sendJoin();
+    setTimeout(function(){ rebuilding = false; }, 2000);
+  }
+
+  function sendJoin(){
+    lastJoinSent = Date.now();
     sigSend({from:viewerId, to:"sender", type:"join"});
   }
 
-  resetPeer();
+  pc = new RTCPeerConnection(RTC_CFG);
+  attachHandlers(pc);
+  sendJoin();
 
   setInterval(function(){
     var v = $("rv");
@@ -489,28 +522,34 @@ function setupViewer(){
       " " + vw + "x" + vh + " sig:" + sigSince + " last:" + lastSigType;
   }, 500);
 
+  // Watchdog: if stuck for 20s, rebuild pc — but keep SAME viewerId
+  var stuckSince = 0;
   setInterval(function(){
     if (!pc) return;
     var st = pc.connectionState || pc.iceConnectionState;
     if (st === "new" || st === "checking" || st === "connecting" || st === "disconnected") {
       if (!stuckSince) stuckSince = Date.now();
-      if (Date.now() - stuckSince > 30000) resetPeer();
+      if (Date.now() - stuckSince > 20000) {
+        stuckSince = 0;
+        rebuildPeer();
+      }
     } else {
       stuckSince = 0;
     }
-  }, 1500);
+  }, 2000);
 
   setInterval(function(){
     if (rv.paused && rv.srcObject) rv.play().catch(function(){});
   }, 1500);
 
   setInterval(function(){
-    if (!gotVideo && Date.now() - lastVideoTime > 90000) location.reload();
+    if (!gotVideo && Date.now() - lastVideoTime > 120000) location.reload();
   }, 5000);
 
+  // Re-send join every 8s until we have video
   setInterval(function(){
-    if (!gotVideo) sigSend({from:viewerId, to:"sender", type:"join"});
-  }, 5000);
+    if (!gotVideo && Date.now() - lastJoinSent > 8000) sendJoin();
+  }, 2000);
 
   sigPoll(function(body){
     if (!body) return;
@@ -518,14 +557,13 @@ function setupViewer(){
 
     if (body.type === "offer") {
       var st = pc.connectionState || pc.iceConnectionState;
-      var healthy = (st === "connected" || st === "completed");
+      var healthy = (st === "connected" || st === "completed" || st === "connecting" || st === "checking");
       if (pc.currentRemoteDescription && healthy) return;
       if (pc.currentRemoteDescription) {
         try { pc.close(); } catch(e){}
         pc = new RTCPeerConnection(RTC_CFG);
         attachHandlers(pc);
       }
-      stuckSince = Date.now();
       pc.setRemoteDescription(new RTCSessionDescription(body.data))
       .then(function(){ return pc.createAnswer(); })
       .then(function(ans){
