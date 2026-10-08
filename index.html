@@ -225,7 +225,7 @@ body{
 
 <div id="viewer">
 <div id="stage">
-<video id="rv" autoplay playsinline></video>
+<video id="rv" autoplay playsinline muted></video>
 <div id="waiting"><div>⏳</div><div id="waitText">Waiting for presenter...</div></div>
 <div id="vstatus">Connecting...</div>
 <button id="exitBtn">Exit</button>
@@ -472,6 +472,7 @@ waiting.classList.add("hidden");
 vstatus.textContent="Live — "+ROOM;
 };
 pc.onicecandidate=function(e){if(e.candidate)sigSend({from:viewerId,to:"sender",type:"vcandidate",data:e.candidate});};
+setInterval(function(){var v=document.getElementById("rv");document.getElementById("vstatus").textContent="PC:"+pc.connectionState+" ICE:"+pc.iceConnectionState+" SRC:"+(v.srcObject?"y":"n")+" RS:"+v.readyState;},1000);
 pc.onconnectionstatechange=function(){
 var st=pc.connectionState;
 if(st==="failed"||st==="disconnected"||st==="closed"){
