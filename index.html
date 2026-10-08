@@ -5,66 +5,45 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>KSG Live</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font:16px system-ui,-apple-system,sans-serif;background:#0f0f0f;color:#f5efe0;min-height:100vh}
-.stripe{position:fixed;top:0;left:0;right:0;height:6px;z-index:100;background:linear-gradient(to right,#000 0 25%,#bb0000 25% 50%,#1a4d2e 50% 75%,#c9a227 75% 100%)}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f0f;color:#f5efe0;margin:0;min-height:100vh}
+.stripe{position:fixed;top:0;left:0;right:0;height:6px;background:linear-gradient(to right,#000 0 25%,#bb0000 25% 50%,#1a4d2e 50% 75%,#c9a227 75% 100%);z-index:100}
 .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:16px;padding:32px;max-width:460px;width:100%;text-align:center}
+.card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:16px;padding:32px;max-width:460px;width:100%;text-align:center;box-sizing:border-box}
 .logo{font-size:26px;font-weight:800;letter-spacing:2px;margin-bottom:24px}
 .logo span{color:#c9a227}
 .sub{color:#8a8578;font-size:14px;margin-bottom:20px}
-.btn{width:100%;padding:18px;font-size:16px;font-weight:700;border:0;border-radius:12px;cursor:pointer;font-family:inherit;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn{display:block;width:100%;padding:18px;font-size:16px;font-weight:700;border:0;border-radius:12px;cursor:pointer;margin-top:12px;text-decoration:none;text-align:center;box-sizing:border-box;font-family:inherit}
 .btn-gold{background:linear-gradient(135deg,#c9a227,#e0b93a);color:#0f0f0f}
 .btn-green{background:linear-gradient(135deg,#1a4d2e,#2a7043);color:#fff}
 .btn-red{background:linear-gradient(135deg,#8a0000,#bb0000);color:#fff}
 .btn:disabled{opacity:.5;cursor:default}
-select,input{width:100%;padding:16px;font-size:16px;border:2px solid #2a2a2a;border-radius:12px;background:#0f0f0f;color:#f5efe0;font-family:inherit;margin-bottom:12px}
-select:focus,input:focus{outline:none;border-color:#c9a227}
-.divider{color:#8a8578;font-size:13px;margin:16px 0}
-.hidden{display:none !important}
-#rv{display:block;width:100vw;height:100vh;object-fit:contain;background:#000}
-#viewer{position:fixed;inset:0;background:#000}
-#status{position:fixed;top:12px;left:12px;background:rgba(0,0,0,.75);padding:8px 14px;border-radius:8px;font:12px ui-monospace,monospace;z-index:10;color:#fff;max-width:80vw}
+select,input{width:100%;padding:16px;font-size:16px;border:2px solid #2a2a2a;border-radius:12px;background:#0f0f0f;color:#f5efe0;font-family:inherit;margin-bottom:12px;box-sizing:border-box}
+.hidden{display:none}
+#rv{width:100vw;height:100vh;object-fit:contain;background:#000;display:block}
+#viewer{position:fixed;top:0;left:0;right:0;bottom:0;background:#000}
+#status{position:fixed;top:12px;left:12px;background:rgba(0,0,0,.75);padding:8px 14px;border-radius:8px;font:12px monospace;z-index:10;color:#fff}
 #controls{position:fixed;top:12px;right:12px;display:flex;gap:8px;background:rgba(0,0,0,.75);padding:8px;border-radius:8px;z-index:10;align-items:center}
 #controls button{padding:8px 14px;border:0;border-radius:6px;background:#c9a227;color:#0f0f0f;font-weight:700;cursor:pointer}
-#controls input{width:90px;margin:0;padding:0}
-#exitBtn{position:fixed;top:12px;left:12px;background:#8a0000;color:#fff;border:0;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;z-index:11}
-#waiting{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;z-index:5;flex-direction:column;gap:12px;padding:20px;text-align:center;font-size:clamp(16px,4vw,24px)}
+#controls input{width:90px;margin:0}
+#exitBtn{position:fixed;top:12px;left:12px;background:#8a0000;color:#fff;padding:8px 14px;border-radius:8px;font-weight:700;text-decoration:none;z-index:11}
+#waiting{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;z-index:5;flex-direction:column;gap:12px;font-size:20px}
 #preview{position:fixed;bottom:16px;right:16px;width:240px;border:2px solid #c9a227;border-radius:8px;z-index:50;background:#000}
 #preview video{width:100%;display:block}
-#banner{position:fixed;top:6px;left:0;right:0;background:#bb0000;color:#fff;text-align:center;padding:8px;font-weight:700;z-index:99;font-size:13px;display:none}
-.linkbox{background:#0f0f0f;border:1px dashed #c9a227;border-radius:8px;padding:12px;margin-top:20px;font:11px ui-monospace,monospace;word-break:break-all;color:#8a8578}
+.linkbox{background:#0f0f0f;border:1px dashed #c9a227;border-radius:8px;padding:12px;margin-top:20px;font:11px monospace;word-break:break-all;color:#8a8578}
 .linkbox span{color:#c9a227;font-weight:700}
-#senderInfo{margin-top:20px;font:12px ui-monospace,monospace;color:#8a8578;line-height:1.6}
+#senderInfo{margin-top:20px;font:12px monospace;color:#8a8578}
 #viewerCount{margin-top:8px;font-size:14px;color:#c9a227;font-weight:700}
-@media(max-width:700px){
-  .card{padding:24px 20px;max-width:92vw}
-  .btn{padding:22px;font-size:17px;margin-top:16px}
-  .logo{font-size:22px}
-  #controls{bottom:20px;top:auto;left:50%;transform:translateX(-50%);right:auto;padding:10px;gap:10px}
-  #controls button{padding:14px 20px;font-size:16px}
-  #vol{width:110px;height:28px}
-  #exitBtn{top:auto;bottom:20px;left:12px;padding:14px 18px;font-size:15px}
-  #status{font-size:11px;padding:6px 10px;max-width:60vw}
-}
-@media(min-width:1400px){
-  .card{padding:44px 40px;max-width:560px}
-  .logo{font-size:32px}
-  .btn{padding:24px;font-size:18px}
-}
-*:focus-visible{outline:4px solid #c9a227;outline-offset:4px;border-radius:8px}
 </style>
 </head>
 <body>
 <div class="stripe"></div>
-<div id="banner">🔴 Your screen is being shared</div>
 
-<div id="role" class="wrap">
+<div id="role" class="wrap hidden">
   <div class="card">
     <div class="logo">KSG <span>LIVE</span></div>
     <p class="sub">Choose your role</p>
-    <button class="btn btn-gold" onclick="setRole('presenter')">📺 I am Presenting</button>
-    <button class="btn btn-green" onclick="setRole('viewer')">👁 I am Watching</button>
+    <a class="btn btn-gold" href="?role=presenter">I am Presenting</a>
+    <a class="btn btn-green" href="?role=viewer">I am Watching</a>
   </div>
 </div>
 
@@ -73,10 +52,9 @@ select:focus,input:focus{outline:none;border-color:#c9a227}
     <div class="logo">KSG <span>LIVE</span></div>
     <p class="sub" id="classSub">Choose class</p>
     <select id="roomSel"></select>
-    <div class="divider">OR</div>
-    <input id="roomCustom" placeholder="Type your own class name">
+    <input id="roomCustom" placeholder="Or type your own class name">
     <button class="btn btn-gold" onclick="enterRoom()">Enter</button>
-    <button class="btn btn-red" onclick="backToRole()">Back</button>
+    <a class="btn btn-red" href=".">Back</a>
   </div>
 </div>
 
@@ -84,24 +62,24 @@ select:focus,input:focus{outline:none;border-color:#c9a227}
   <div class="card">
     <div class="logo">KSG <span>LIVE</span></div>
     <div class="sub" id="roomLabel"></div>
-    <button id="startBtn" class="btn btn-gold">▶ Start Sharing</button>
-    <button id="muteBtn" class="btn btn-green" disabled>🎤 Mute Mic</button>
-    <button class="btn btn-red" onclick="backToRole()">Exit</button>
+    <button id="startBtn" class="btn btn-gold">Start Sharing</button>
+    <button id="muteBtn" class="btn btn-green" disabled>Mute Mic</button>
+    <a class="btn btn-red" href=".">Exit</a>
     <div id="senderInfo">Mode: idle</div>
-    <div id="viewerCount">👥 0 viewers connected</div>
-    <div class="linkbox">Share this with viewers:<br><span id="shareUrl"></span></div>
+    <div id="viewerCount">0 viewers connected</div>
+    <div class="linkbox">Share with viewers:<br><span id="shareUrl"></span></div>
   </div>
   <div id="preview" class="hidden"><video id="pv" autoplay muted playsinline></video></div>
 </div>
 
 <div id="viewer" class="hidden">
   <video id="rv" autoplay playsinline muted></video>
-  <div id="waiting"><div>⏳</div><div id="waitText">Waiting for presenter...</div></div>
+  <div id="waiting"><div>Waiting for presenter...</div><div id="waitText"></div></div>
   <div id="status">Connecting...</div>
-  <button id="exitBtn" onclick="backToRole()">Exit</button>
+  <a id="exitBtn" href=".">Exit</a>
   <div id="controls">
     <button id="fsBtn">Fullscreen</button>
-    <button id="spkBtn">🔇</button>
+    <button id="spkBtn">Sound Off</button>
     <input id="vol" type="range" min="0" max="100" value="100">
   </div>
 </div>
@@ -111,7 +89,6 @@ var params = new URLSearchParams(location.search);
 var ROLE = params.get("role");
 var ROOM = params.get("room") || "";
 var viewerId = "v" + Math.random().toString(36).slice(2,10);
-var ROOM_TAG = ROOM ? ROOM + "_" + Math.random().toString(36).slice(2,6) : "";
 
 var ICE = [
   {urls:"stun:stun.relay.metered.ca:80"},
@@ -121,15 +98,33 @@ var ICE = [
   {urls:"turns:global.relay.metered.ca:443?transport=tcp",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"}
 ];
 
-var $ = function(id){return document.getElementById(id);};
 var sigSince = 0;
 var streaming = false;
 var micMuted = false;
 var pc = null;
 var peers = {};
-var statusBase = "Mode: WebRTC";
 var senderPollStarted = false;
 var senderCombined = null;
+
+function $(id){ return document.getElementById(id); }
+
+function enterRoom(){
+  var custom = ($("roomCustom").value || "").replace(/[^a-zA-Z0-9 _-]/g,"").trim();
+  var v = custom || $("roomSel").value;
+  if (!v) return;
+  location.href = location.pathname + "?role=" + encodeURIComponent(ROLE) + "&room=" + encodeURIComponent(v);
+}
+
+function loadRooms(){
+  var sel = $("roomSel");
+  sel.innerHTML = "";
+  var defaults = ["Class 1","Class 2","Class 3"];
+  defaults.forEach(function(n){
+    var o = document.createElement("option");
+    o.value = n; o.textContent = n;
+    sel.appendChild(o);
+  });
+}
 
 if (!ROLE) {
   $("role").classList.remove("hidden");
@@ -144,57 +139,20 @@ if (!ROLE) {
   setupSender();
 } else {
   $("viewer").classList.remove("hidden");
-  $("waitText").textContent = "Waiting for presenter in " + ROOM + "...";
+  $("waitText").textContent = "Room: " + ROOM;
   setupViewer();
 }
 
-function setRole(r){
-  var u = new URL(location.href);
-  u.searchParams.set("role", r);
-  u.searchParams.delete("room");
-  location.href = u.toString();
-}
-function backToRole(){
-  location.href = location.pathname;
-}
-function enterRoom(){
-  var custom = ($("roomCustom").value || "").trim().replace(/[^a-zA-Z0-9 _-]/g,"");
-  var v = custom || $("roomSel").value;
-  if (!v) return;
-  var u = new URL(location.href);
-  u.searchParams.set("role", ROLE);
-  u.searchParams.set("room", v);
-  location.href = u.toString();
-}
-function loadRooms(){
-  fetch("rooms.php").then(function(r){return r.json();}).then(function(list){
-    var sel = $("roomSel");
-    sel.innerHTML = "";
-    if (!list || !list.length) list = ["Class 1","Class 2","Class 3"];
-    list.forEach(function(n){
-      var o = document.createElement("option");
-      o.value = n; o.textContent = n;
-      sel.appendChild(o);
-    });
-  }).catch(function(){
-    var sel = $("roomSel");
-    sel.innerHTML = "";
-    ["Class 1","Class 2","Class 3"].forEach(function(n){
-      var o = document.createElement("option");
-      o.value = n; o.textContent = n;
-      sel.appendChild(o);
-    });
-  });
-}
+function sigUrl(extra){ return "signal.php?channel=" + encodeURIComponent(ROOM) + (extra || ""); }
 
-function sigUrl(extra){ return "signal.php?channel=" + encodeURIComponent(ROOM) + (extra||""); }
 function sigSend(obj){
   fetch(sigUrl(""), {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify(obj)
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(obj)
   }).catch(function(){});
 }
+
 function sigPoll(handler){
   var backoff = 300;
   function tick(){
@@ -204,7 +162,7 @@ function sigPoll(handler){
       if (Array.isArray(arr)) {
         for (var i = 0; i < arr.length; i++) {
           sigSince = Math.max(sigSince, arr[i].id);
-          handler(arr[i].body);
+          try { handler(arr[i].body); } catch(e) {}
         }
       }
       backoff = 300;
@@ -217,19 +175,19 @@ function sigPoll(handler){
 
 function updateViewerCount(){
   var n = Object.keys(peers).length;
-  $("viewerCount").textContent = "👥 " + n + " viewer" + (n === 1 ? "" : "s") + " connected";
+  $("viewerCount").textContent = n + " viewer" + (n === 1 ? "" : "s") + " connected";
 }
 
 function setupSender(){
-  $("muteBtn").addEventListener("click", function(){
+  $("muteBtn").onclick = function(){
     micMuted = !micMuted;
     if (senderCombined) {
       senderCombined.getAudioTracks().forEach(function(t){ t.enabled = !micMuted; });
     }
-    $("muteBtn").textContent = micMuted ? "🔇 Unmute Mic" : "🎤 Mute Mic";
-  });
+    $("muteBtn").textContent = micMuted ? "Unmute Mic" : "Mute Mic";
+  };
 
-  $("startBtn").addEventListener("click", function(){
+  $("startBtn").onclick = function(){
     if (streaming) return;
     $("startBtn").disabled = true;
 
@@ -249,15 +207,9 @@ function setupSender(){
       $("pv").srcObject = combined;
       $("pv").play();
       $("preview").classList.remove("hidden");
-      $("banner").style.display = "block";
       streaming = true;
-
-      statusBase = "Mode: WebRTC | screen";
-      if (res.display.getAudioTracks().length) statusBase += " + system";
-      if (res.mic) statusBase += " + mic";
-      $("senderInfo").textContent = statusBase;
       $("muteBtn").disabled = !res.mic;
-      $("startBtn").textContent = "● Sharing...";
+      $("startBtn").textContent = "Sharing...";
       updateViewerCount();
 
       if (!senderPollStarted) {
@@ -279,9 +231,7 @@ function setupSender(){
         var peer = new RTCPeerConnection({ iceServers: ICE });
         peers[vid] = peer;
         updateViewerCount();
-
         stream.getTracks().forEach(function(t){ peer.addTrack(t, stream); });
-
         peer.onicecandidate = function(e){
           if (e.candidate) sigSend({from:"sender", to:vid, type:"scandidate", data:e.candidate});
         };
@@ -293,7 +243,6 @@ function setupSender(){
             updateViewerCount();
           }
         };
-
         peer.createOffer().then(function(offer){
           return peer.setLocalDescription(offer).then(function(){
             sigSend({from:"sender", to:vid, type:"offer", data:{type:offer.type, sdp:offer.sdp}});
@@ -304,16 +253,14 @@ function setupSender(){
       res.display.getVideoTracks()[0].addEventListener("ended", function(){
         streaming = false;
         $("startBtn").disabled = false;
-        $("startBtn").textContent = "▶ Start Sharing";
+        $("startBtn").textContent = "Start Sharing";
         $("preview").classList.add("hidden");
-        $("banner").style.display = "none";
-        $("senderInfo").textContent = "Mode: idle";
         Object.keys(peers).forEach(function(id){ try{ peers[id].close(); }catch(e){} delete peers[id]; });
         updateViewerCount();
       });
     })
     .catch(function(){ $("startBtn").disabled = false; });
-  });
+  };
 }
 
 function setupViewer(){
@@ -324,11 +271,11 @@ function setupViewer(){
     if (muted) {
       rv.muted = false;
       muted = false;
-      $("spkBtn").textContent = "🔊";
+      $("spkBtn").textContent = "Sound On";
     }
   });
 
-  $("fsBtn").addEventListener("click", function(){
+  $("fsBtn").onclick = function(){
     if (rv.webkitEnterFullscreen) { rv.webkitEnterFullscreen(); return; }
     if (!document.fullscreenElement) {
       var el = document.documentElement;
@@ -338,17 +285,17 @@ function setupViewer(){
       if (document.exitFullscreen) document.exitFullscreen();
       else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
     }
-  });
+  };
 
-  $("spkBtn").addEventListener("click", function(){
+  $("spkBtn").onclick = function(){
     muted = !muted;
     rv.muted = muted;
-    $("spkBtn").textContent = muted ? "🔇" : "🔊";
-  });
+    $("spkBtn").textContent = muted ? "Sound Off" : "Sound On";
+  };
 
-  $("vol").addEventListener("input", function(e){
+  $("vol").oninput = function(e){
     rv.volume = e.target.value / 100;
-  });
+  };
 
   pc = new RTCPeerConnection({ iceServers: ICE });
 
