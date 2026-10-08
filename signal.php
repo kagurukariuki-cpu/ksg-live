@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = $data['next']++;
     $data['msgs'][] = ['id' => $id, 'body' => $parsed];
 
-    if (count($data['msgs']) > 2000) $data['msgs'] = array_slice($data['msgs'], -1000);
+    if (count($data['msgs']) > 3000) $data['msgs'] = array_slice($data['msgs'], -1500);
 
     ftruncate($fp, 0); rewind($fp);
     fwrite($fp, json_encode($data));
@@ -39,8 +39,8 @@ foreach ($data['msgs'] as $m) {
     if ($m['id'] > $since) $result[] = $m;
 }
 
-if (count($data['msgs']) > 1000) {
-    $data['msgs'] = array_slice($data['msgs'], -500);
+if (count($data['msgs']) > 1500) {
+    $data['msgs'] = array_slice($data['msgs'], -750);
     ftruncate($fp, 0); rewind($fp);
     fwrite($fp, json_encode($data));
 }

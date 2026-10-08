@@ -94,12 +94,20 @@ var ROOM = params.get("room") || "";
 var viewerId = "v" + Math.random().toString(36).slice(2,10);
 
 var ICE = [
+  {urls:"stun:stun.l.google.com:19302"},
   {urls:"stun:stun.relay.metered.ca:80"},
   {urls:"turn:global.relay.metered.ca:80",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"},
   {urls:"turn:global.relay.metered.ca:80?transport=tcp",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"},
   {urls:"turn:global.relay.metered.ca:443",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"},
   {urls:"turns:global.relay.metered.ca:443?transport=tcp",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"}
 ];
+
+var RTC_CFG = {
+  iceServers: ICE,
+  iceCandidatePoolSize: 4,
+  bundlePolicy: "max-bundle",
+  rtcpMuxPolicy: "require"
+};
 
 var sigSince = 0;
 var streaming = false;
@@ -219,6 +227,8 @@ function updateViewerCount(){
   $("viewerCount").textContent = n + " viewer" + (n === 1 ? "" : "s") + " connected";
 }
 
+/* ===================== SENDER ===================== */
+
 function setupSender(){
   $("muteBtn").onclick = function(){
     micMuted = !micMuted;
@@ -232,9 +242,14 @@ function setupSender(){
     if (streaming) return;
     $("startBtn").disabled = true;
 
-    navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true })
+    navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: { ideal: 30, max: 30 } },
+      audio: true
+    })
     .then(function(display){
-      return navigator.mediaDevices.getUserMedia({ audio: true })
+      return navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true }
+      })
       .then(function(mic){ return { display: display, mic: mic }; })
       .catch(function(){ return { display: display, mic: null }; });
     })
@@ -249,7 +264,7 @@ function setupSender(){
       senderCombined = combined;
 
       $("pv").srcObject = combined;
-      $("pv").play();
+      $("pv").play().catch(function(){});
       $("preview").classList.remove("hidden");
       streaming = true;
       $("muteBtn").disabled = !res.mic;
@@ -263,82 +278,114 @@ function setupSender(){
 
       if (!senderPollStarted) {
         senderPollStarted = true;
-        sigPoll(function(body){
-          if (!body || !senderCombined) return;
-
-          if (body.type === "join" && body.from) {
-            newPeer(body.from, senderCombined);
-
-          } else if (body.type === "answer" && body.from && peers[body.from]) {
-            var entry = peers[body.from];
-            entry.pc.setRemoteDescription(body.data).then(function(){
-              var q = entry.pending; entry.pending = [];
-              q.forEach(function(c){ entry.pc.addIceCandidate(c).catch(function(){}); });
-            }).catch(function(){});
-
-          } else if (body.type === "vcandidate" && body.from && peers[body.from]) {
-            var e2 = peers[body.from];
-            if (e2.pc.remoteDescription) {
-              e2.pc.addIceCandidate(body.data).catch(function(){});
-            } else {
-              e2.pending.push(body.data);
-            }
-          }
-        });
+        sigPoll(handleSenderSignal);
       }
 
-      function newPeer(vid, stream){
-        var existing = peers[vid];
-        if (existing) {
-          var st = existing.pc.connectionState || existing.pc.iceConnectionState;
-          if (st !== "failed" && st !== "closed" && st !== "disconnected") return;
-          try { existing.pc.close(); } catch(e){}
-          delete peers[vid];
-        }
-
-        var peer = new RTCPeerConnection({ iceServers: ICE });
-        var entry = { pc: peer, pending: [], startedAt: Date.now() };
-        peers[vid] = entry;
-        updateViewerCount();
-
-        stream.getTracks().forEach(function(t){ peer.addTrack(t, stream); });
-
-        peer.onicecandidate = function(e){
-          if (e.candidate) sigSend({from:"sender", to:vid, type:"scandidate", data:e.candidate});
-        };
-
-        peer.onconnectionstatechange = function(){
-          var s = peer.connectionState || peer.iceConnectionState;
-          if (s === "failed" || s === "closed") {
-            try { peer.close(); } catch(e){}
-            if (peers[vid] && peers[vid].pc === peer) {
-              delete peers[vid];
-              updateViewerCount();
-            }
-          }
-        };
-
-        peer.createOffer().then(function(offer){
-          return peer.setLocalDescription(offer).then(function(){
-            sigSend({from:"sender", to:vid, type:"offer", data:{type:offer.type, sdp:offer.sdp}});
-          });
-        });
-      }
-
-      res.display.getVideoTracks()[0].addEventListener("ended", function(){
-        streaming = false;
-        $("startBtn").disabled = false;
-        $("startBtn").textContent = "Start Sharing";
-        $("preview").classList.add("hidden");
-        $("senderInfo").textContent = "Mode: idle";
-        Object.keys(peers).forEach(function(id){ try{ peers[id].pc.close(); }catch(e){} delete peers[id]; });
-        updateViewerCount();
-        if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-      });
+      res.display.getVideoTracks()[0].addEventListener("ended", stopSharing);
     })
     .catch(function(){ $("startBtn").disabled = false; });
   };
+
+  function stopSharing(){
+    streaming = false;
+    $("startBtn").disabled = false;
+    $("startBtn").textContent = "Start Sharing";
+    $("preview").classList.add("hidden");
+    $("senderInfo").textContent = "Mode: idle";
+    Object.keys(peers).forEach(function(id){
+      try { peers[id].pc.close(); } catch(e){}
+      delete peers[id];
+    });
+    updateViewerCount();
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    if (senderCombined) {
+      senderCombined.getTracks().forEach(function(t){ try{ t.stop(); }catch(e){} });
+    }
+    senderCombined = null;
+  }
 }
+
+function handleSenderSignal(body){
+  if (!body || !senderCombined || !streaming) return;
+
+  if (body.type === "join" && body.from) {
+    newPeer(body.from);
+
+  } else if (body.type === "answer" && body.from && peers[body.from]) {
+    var entry = peers[body.from];
+    entry.pc.setRemoteDescription(new RTCSessionDescription(body.data))
+    .then(function(){
+      var q = entry.pending;
+      entry.pending = [];
+      q.forEach(function(c){
+        entry.pc.addIceCandidate(new RTCIceCandidate(c)).catch(function(){});
+      });
+    })
+    .catch(function(){});
+
+  } else if (body.type === "vcandidate" && body.from && peers[body.from]) {
+    var e2 = peers[body.from];
+    var cand = new RTCIceCandidate(body.data);
+    if (e2.pc.remoteDescription && e2.pc.remoteDescription.type) {
+      e2.pc.addIceCandidate(cand).catch(function(){});
+    } else {
+      e2.pending.push(body.data);
+    }
+  }
+}
+
+function newPeer(vid){
+  var existing = peers[vid];
+  if (existing) {
+    var st = existing.pc.connectionState || existing.pc.iceConnectionState;
+    if (st !== "failed" && st !== "closed" && st !== "disconnected") {
+      return;
+    }
+    try { existing.pc.close(); } catch(e){}
+    delete peers[vid];
+  }
+
+  var peer = new RTCPeerConnection(RTC_CFG);
+  var entry = { pc: peer, pending: [], startedAt: Date.now() };
+  peers[vid] = entry;
+  updateViewerCount();
+
+  senderCombined.getTracks().forEach(function(t){
+    peer.addTrack(t, senderCombined);
+  });
+
+  peer.onicecandidate = function(e){
+    if (e.candidate) {
+      sigSend({from:"sender", to:vid, type:"scandidate", data: e.candidate.toJSON ? e.candidate.toJSON() : e.candidate});
+    }
+  };
+
+  peer.onconnectionstatechange = function(){
+    var s = peer.connectionState || peer.iceConnectionState;
+    if (s === "failed" || s === "closed") {
+      try { peer.close(); } catch(e){}
+      if (peers[vid] && peers[vid].pc === peer) {
+        delete peers[vid];
+        updateViewerCount();
+      }
+    }
+  };
+
+  peer.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false })
+  .then(function(offer){
+    return peer.setLocalDescription(offer).then(function(){
+      sigSend({
+        from: "sender",
+        to: vid,
+        type: "offer",
+        data: { type: offer.type, sdp: offer.sdp }
+      });
+    });
+  })
+  .catch(function(){});
+}
+
+/* ===================== VIEWER ===================== */
 
 function setupViewer(){
   var rv = $("rv");
@@ -346,6 +393,7 @@ function setupViewer(){
   var gotVideo = false;
   var lastVideoTime = Date.now();
   var stuckSince = 0;
+  var lastReset = 0;
 
   function hideWaiting(){ $("waiting").classList.add("gone"); }
 
@@ -379,29 +427,47 @@ function setupViewer(){
 
   function attachHandlers(p){
     p.ontrack = function(e){
-      rv.srcObject = e.streams[0];
-      rv.play().catch(function(){});
-      lastVideoTime = Date.now();
+      if (e.streams && e.streams[0]) {
+        rv.srcObject = e.streams[0];
+        rv.play().catch(function(){});
+        lastVideoTime = Date.now();
+      }
     };
     p.onicecandidate = function(e){
-      if (e.candidate) sigSend({from:viewerId, to:"sender", type:"vcandidate", data:e.candidate});
+      if (e.candidate) {
+        sigSend({
+          from: viewerId,
+          to: "sender",
+          type: "vcandidate",
+          data: e.candidate.toJSON ? e.candidate.toJSON() : e.candidate
+        });
+      }
     };
     p.onconnectionstatechange = function(){
       var st = p.connectionState || p.iceConnectionState;
       if (st === "failed" || st === "closed") {
-        $("waiting").classList.remove("gone");
-        $("waitText").textContent = "Reconnecting...";
-        resetPeer();
+        scheduleReset(1500);
       }
     };
+  }
+
+  function scheduleReset(delay){
+    var now = Date.now();
+    if (now - lastReset < 3000) return;
+    lastReset = now;
+    setTimeout(function(){
+      $("waiting").classList.remove("gone");
+      $("waitText").textContent = "Reconnecting...";
+      resetPeer();
+    }, delay);
   }
 
   function resetPeer(){
     try { if (pc) pc.close(); } catch(e){}
     viewerId = "v" + Math.random().toString(36).slice(2,10);
-    pc = new RTCPeerConnection({ iceServers: ICE });
+    pc = new RTCPeerConnection(RTC_CFG);
     attachHandlers(pc);
-    stuckSince = 0;
+    stuckSince = Date.now();
     sigSend({from:viewerId, to:"sender", type:"join"});
   }
 
@@ -428,18 +494,18 @@ function setupViewer(){
     var st = pc.connectionState || pc.iceConnectionState;
     if (st === "new" || st === "checking" || st === "connecting" || st === "disconnected") {
       if (!stuckSince) stuckSince = Date.now();
-      if (Date.now() - stuckSince > 25000) resetPeer();
+      if (Date.now() - stuckSince > 30000) resetPeer();
     } else {
       stuckSince = 0;
     }
-  }, 1000);
+  }, 1500);
 
   setInterval(function(){
     if (rv.paused && rv.srcObject) rv.play().catch(function(){});
-  }, 1000);
+  }, 1500);
 
   setInterval(function(){
-    if (!gotVideo && Date.now() - lastVideoTime > 60000) location.reload();
+    if (!gotVideo && Date.now() - lastVideoTime > 90000) location.reload();
   }, 5000);
 
   setInterval(function(){
@@ -448,7 +514,7 @@ function setupViewer(){
 
   sigPoll(function(body){
     if (!body) return;
-    if (body.to !== viewerId && body.to !== "*") return;
+    if (body.to && body.to !== viewerId && body.to !== "*") return;
 
     if (body.type === "offer") {
       var st = pc.connectionState || pc.iceConnectionState;
@@ -456,19 +522,28 @@ function setupViewer(){
       if (pc.currentRemoteDescription && healthy) return;
       if (pc.currentRemoteDescription) {
         try { pc.close(); } catch(e){}
-        pc = new RTCPeerConnection({ iceServers: ICE });
+        pc = new RTCPeerConnection(RTC_CFG);
         attachHandlers(pc);
       }
-      stuckSince = 0;
-      pc.setRemoteDescription(body.data)
+      stuckSince = Date.now();
+      pc.setRemoteDescription(new RTCSessionDescription(body.data))
       .then(function(){ return pc.createAnswer(); })
-      .then(function(ans){ return pc.setLocalDescription(ans).then(function(){
-        sigSend({from:viewerId, to:"sender", type:"answer", data:{type:ans.type, sdp:ans.sdp}});
-      }); })
+      .then(function(ans){
+        return pc.setLocalDescription(ans).then(function(){
+          sigSend({
+            from: viewerId,
+            to: "sender",
+            type: "answer",
+            data: { type: ans.type, sdp: ans.sdp }
+          });
+        });
+      })
       .catch(function(){});
 
     } else if (body.type === "scandidate") {
-      if (pc.remoteDescription) pc.addIceCandidate(body.data).catch(function(){});
+      if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+        pc.addIceCandidate(new RTCIceCandidate(body.data)).catch(function(){});
+      }
     }
   });
 }
