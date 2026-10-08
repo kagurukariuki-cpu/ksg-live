@@ -33,12 +33,13 @@ select,input{width:100%;padding:16px;font-size:16px;border:2px solid #2a2a2a;bor
 .linkbox span{color:#c9a227;font-weight:700}
 #senderInfo{margin-top:20px;font:12px monospace;color:#8a8578}
 #viewerCount{margin-top:8px;font-size:14px;color:#c9a227;font-weight:700}
+#noRooms{color:#8a8578;font-size:13px;padding:12px;text-align:center}
 </style>
 </head>
 <body>
 <div class="stripe"></div>
 
-<div id="role" class="wrap hidden">
+<div id="role" class="wrap hidden">
   <div class="card">
     <div class="logo">KSG <span>LIVE</span></div>
     <p class="sub">Choose your role</p>
@@ -52,6 +53,7 @@ select,input{width:100%;padding:16px;font-size:16px;border:2px solid #2a2a2a;bor
     <div class="logo">KSG <span>LIVE</span></div>
     <p class="sub" id="classSub">Choose class</p>
     <select id="roomSel"></select>
+    <div id="noRooms" class="hidden">No live classes yet — type a name below</div>
     <input id="roomCustom" placeholder="Or type your own class name">
     <button class="btn btn-gold" onclick="enterRoom()">Enter</button>
     <a class="btn btn-red" href=".">Back</a>
@@ -105,6 +107,7 @@ var pc = null;
 var peers = {};
 var senderPollStarted = false;
 var senderCombined = null;
+var heartbeatTimer = null;
 
 function $(id){ return document.getElementById(id); }
 
@@ -118,20 +121,59 @@ function enterRoom(){
 function loadRooms(){
   var sel = $("roomSel");
   sel.innerHTML = "";
-  var defaults = ["Class 1","Class 2","Class 3"];
-  defaults.forEach(function(n){
-    var o = document.createElement("option");
-    o.value = n; o.textContent = n;
-    sel.appendChild(o);
+  fetch("rooms.php?t=" + Date.now())
+  .then(function(r){ return r.json(); })
+  .then(function(list){
+    if (Array.isArray(list) && list.length) {
+      list.forEach(function(n){
+        var o = document.createElement("option");
+        o.value = n; o.textContent = n;
+        sel.appendChild(o);
+      });
+      $("noRooms").classList.add("hidden");
+    } else {
+      $("noRooms").classList.remove("hidden");
+    }
+  })
+  .catch(function(){
+    $("noRooms").classList.remove("hidden");
   });
+}
+
+function announceLive(){
+  if (!ROOM) return;
+  fetch("signal.php?channel=_live_rooms", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({room: ROOM, t: Math.floor(Date.now()/1000)})
+  }).catch(function(){});
+}
+
+function startHeartbeat(){
+  announceLive();
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatTimer = setInterval(function(){
+    if (streaming) announceLive();
+  }, 5000);
 }
 
 if (!ROLE) {
   $("role").classList.remove("hidden");
 } else if (!ROOM) {
   $("classStep").classList.remove("hidden");
-  $("classSub").textContent = ROLE === "presenter" ? "Which class are you presenting to?" : "Which class are you watching?";
-  loadRooms();
+  $("classSub").textContent = ROLE === "presenter" ? "Which class are you presenting to?" : "Live classes — pick one";
+  if (ROLE === "viewer") {
+    loadRooms();
+    setInterval(loadRooms, 5000);
+  } else {
+    var sel = $("roomSel");
+    sel.innerHTML = "";
+    ["Class 1","Class 2","Class 3"].forEach(function(n){
+      var o = document.createElement("option");
+      o.value = n; o.textContent = n;
+      sel.appendChild(o);
+    });
+  }
 } else if (ROLE === "presenter") {
   $("sender").classList.remove("hidden");
   $("roomLabel").textContent = "Room: " + ROOM;
@@ -211,6 +253,7 @@ function setupSender(){
       $("muteBtn").disabled = !res.mic;
       $("startBtn").textContent = "Sharing...";
       updateViewerCount();
+      startHeartbeat();
 
       if (!senderPollStarted) {
         senderPollStarted = true;
@@ -257,6 +300,7 @@ function setupSender(){
         $("preview").classList.add("hidden");
         Object.keys(peers).forEach(function(id){ try{ peers[id].close(); }catch(e){} delete peers[id]; });
         updateViewerCount();
+        if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
       });
     })
     .catch(function(){ $("startBtn").disabled = false; });
