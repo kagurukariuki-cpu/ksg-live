@@ -291,7 +291,7 @@ function setupSender(){
         var existing = peers[vid];
         if (existing) {
           var st = existing.pc.connectionState || existing.pc.iceConnectionState;
-          if (st !== "failed" && st !== "closed") return;
+          if (st !== "failed" && st !== "closed" && st !== "disconnected") return;
           try { existing.pc.close(); } catch(e){}
           delete peers[vid];
         }
@@ -346,7 +346,6 @@ function setupViewer(){
   var gotVideo = false;
   var lastVideoTime = Date.now();
   var stuckSince = 0;
-  var hasOffer = false;
 
   function hideWaiting(){ $("waiting").classList.add("gone"); }
 
@@ -403,7 +402,6 @@ function setupViewer(){
     pc = new RTCPeerConnection({ iceServers: ICE });
     attachHandlers(pc);
     stuckSince = 0;
-    hasOffer = false;
     sigSend({from:viewerId, to:"sender", type:"join"});
   }
 
@@ -428,9 +426,9 @@ function setupViewer(){
   setInterval(function(){
     if (!pc) return;
     var st = pc.connectionState || pc.iceConnectionState;
-    if (st === "new" || st === "checking" || st === "connecting") {
+    if (st === "new" || st === "checking" || st === "connecting" || st === "disconnected") {
       if (!stuckSince) stuckSince = Date.now();
-      if (Date.now() - stuckSince > 15000) resetPeer();
+      if (Date.now() - stuckSince > 25000) resetPeer();
     } else {
       stuckSince = 0;
     }
@@ -441,28 +439,27 @@ function setupViewer(){
   }, 1000);
 
   setInterval(function(){
-    if (!gotVideo && Date.now() - lastVideoTime > 45000) location.reload();
+    if (!gotVideo && Date.now() - lastVideoTime > 60000) location.reload();
   }, 5000);
 
   setInterval(function(){
-    if (!hasOffer) sigSend({from:viewerId, to:"sender", type:"join"});
-  }, 3000);
+    if (!gotVideo) sigSend({from:viewerId, to:"sender", type:"join"});
+  }, 5000);
 
   sigPoll(function(body){
     if (!body) return;
     if (body.to !== viewerId && body.to !== "*") return;
 
     if (body.type === "offer") {
-      hasOffer = true;
       var st = pc.connectionState || pc.iceConnectionState;
-      var healthy = (st === "connected" || st === "completed" || st === "checking" || st === "connecting");
+      var healthy = (st === "connected" || st === "completed");
       if (pc.currentRemoteDescription && healthy) return;
       if (pc.currentRemoteDescription) {
         try { pc.close(); } catch(e){}
         pc = new RTCPeerConnection({ iceServers: ICE });
         attachHandlers(pc);
       }
-      stuckSince = Date.now();
+      stuckSince = 0;
       pc.setRemoteDescription(body.data)
       .then(function(){ return pc.createAnswer(); })
       .then(function(ans){ return pc.setLocalDescription(ans).then(function(){
