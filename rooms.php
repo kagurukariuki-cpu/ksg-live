@@ -12,9 +12,11 @@ if (!is_array($data) || !isset($data['msgs'])) { echo '[]'; exit; }
 $now = time();
 $rooms = [];
 foreach ($data['msgs'] as $m) {
-    $body = isset($m['body']) ? $m['body'] : null;
-    if (!$body || !isset($body->room) || !isset($body->t)) continue;
-    if ($now - intval($body->t) > 8) continue;
-    if (!in_array($body->room, $rooms)) $rooms[] = $body->room;
+    if (!isset($m['body'])) continue;
+    $body = $m['body'];
+    if (!is_array($body)) continue;
+    if (!isset($body['room']) || !isset($body['t'])) continue;
+    if ($now - intval($body['t']) > 8) continue;
+    if (!in_array($body['room'], $rooms)) $rooms[] = $body['room'];
 }
 echo json_encode($rooms);

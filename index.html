@@ -21,7 +21,7 @@ select,input{width:100%;padding:16px;font-size:16px;border:2px solid #2a2a2a;bor
 .hidden{display:none}
 #rv{width:100vw;height:100vh;object-fit:contain;background:#000;display:block}
 #viewer{position:fixed;top:0;left:0;right:0;bottom:0;background:#000}
-#status{position:fixed;top:12px;left:12px;background:rgba(0,0,0,.75);padding:8px 14px;border-radius:8px;font:12px monospace;z-index:10;color:#fff}
+#status{position:fixed;bottom:12px;left:12px;background:rgba(0,0,0,.75);padding:8px 14px;border-radius:8px;font:12px monospace;z-index:20;color:#fff;max-width:60vw}
 #controls{position:fixed;top:12px;right:12px;display:flex;gap:8px;background:rgba(0,0,0,.75);padding:8px;border-radius:8px;z-index:10;align-items:center}
 #controls button{padding:8px 14px;border:0;border-radius:6px;background:#c9a227;color:#0f0f0f;font-weight:700;cursor:pointer}
 #controls input{width:90px;margin:0}
@@ -31,7 +31,7 @@ select,input{width:100%;padding:16px;font-size:16px;border:2px solid #2a2a2a;bor
 #preview video{width:100%;display:block}
 .linkbox{background:#0f0f0f;border:1px dashed #c9a227;border-radius:8px;padding:12px;margin-top:20px;font:11px monospace;word-break:break-all;color:#8a8578}
 .linkbox span{color:#c9a227;font-weight:700}
-#senderInfo{margin-top:20px;font:12px monospace;color:#8a8578}
+#senderInfo{margin-top:20px;font:12px monospace;color:#8a8578;line-height:1.6}
 #viewerCount{margin-top:8px;font-size:14px;color:#c9a227;font-weight:700}
 #noRooms{color:#8a8578;font-size:13px;padding:12px;text-align:center}
 </style>
@@ -241,9 +241,17 @@ function setupSender(){
     })
     .then(function(res){
       var combined = new MediaStream();
-      res.display.getVideoTracks().forEach(function(t){ combined.addTrack(t); });
-      res.display.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
-      if (res.mic) res.mic.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
+
+      var vidTracks = res.display.getVideoTracks();
+      vidTracks.forEach(function(t){ combined.addTrack(t); });
+
+      // Only ONE audio track: mic if available, otherwise system audio
+      if (res.mic && res.mic.getAudioTracks().length) {
+        res.mic.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
+      } else if (res.display.getAudioTracks().length) {
+        res.display.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
+      }
+
       senderCombined = combined;
 
       $("pv").srcObject = combined;
@@ -252,6 +260,11 @@ function setupSender(){
       streaming = true;
       $("muteBtn").disabled = !res.mic;
       $("startBtn").textContent = "Sharing...";
+
+      $("senderInfo").textContent =
+        "Tracks: " + combined.getVideoTracks().length + " video, " +
+        combined.getAudioTracks().length + " audio";
+
       updateViewerCount();
       startHeartbeat();
 
@@ -300,6 +313,7 @@ function setupSender(){
         $("startBtn").disabled = false;
         $("startBtn").textContent = "Start Sharing";
         $("preview").classList.add("hidden");
+        $("senderInfo").textContent = "Mode: idle";
         Object.keys(peers).forEach(function(id){ try{ peers[id].close(); }catch(e){} delete peers[id]; });
         updateViewerCount();
         if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
@@ -313,7 +327,14 @@ function setupViewer(){
   var rv = $("rv");
   var muted = true;
   var gotVideo = false;
-  var lastFrame = Date.now();
+  var lastVideoTime = 0;
+
+  // Autoplay enforcement: retry play() until the video is really running
+  var playTimer = setInterval(function(){
+    if (rv.paused && rv.srcObject) {
+      rv.play().catch(function(){});
+    }
+  }, 1000);
 
   document.addEventListener("click", function(){
     if (muted) {
@@ -351,8 +372,10 @@ function setupViewer(){
     rv.srcObject = e.streams[0];
     $("waiting").classList.add("hidden");
     rv.play().catch(function(){});
-    gotVideo = true;
-    lastFrame = Date.now();
+    if (e.track && e.track.kind === "video") {
+      gotVideo = true;
+    }
+    lastVideoTime = Date.now();
   };
 
   pc.onicecandidate = function(e){
@@ -368,18 +391,24 @@ function setupViewer(){
   };
 
   setInterval(function(){
-    $("status").textContent = "PC:" + pc.connectionState + " ICE:" + pc.iceConnectionState + " RS:" + rv.readyState;
+    var v = $("rv");
+    $("status").textContent =
+      "PC:" + pc.connectionState +
+      " ICE:" + pc.iceConnectionState +
+      " RS:" + v.readyState +
+      " " + v.videoWidth + "x" + v.videoHeight;
   }, 1500);
 
-  // Auto-reload if no video after 30 seconds
+  // Auto-reload if we never got video after 35 seconds
   setInterval(function(){
-    if (!gotVideo && Date.now() - lastFrame > 30000) location.reload();
+    if (!gotVideo && Date.now() - lastVideoTime > 35000) location.reload();
   }, 5000);
 
-  // Keep retrying join every 3 seconds until video arrives
+  // Keep retrying join every 3 seconds
   function retry(){
     if (!gotVideo) { sigSend({from:viewerId, to:"sender", type:"join"}); setTimeout(retry, 3000); }
   }
+  lastVideoTime = Date.now();
   sigSend({from:viewerId, to:"sender", type:"join"});
   setTimeout(retry, 3000);
 
