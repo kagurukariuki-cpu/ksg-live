@@ -5,500 +5,342 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>KSG Live</title>
 <style>
-:root{
-  --gold:#c9a227;
-  --gold-hi:#e0b93a;
-  --green:#1a4d2e;
-  --green-hi:#2a7043;
-  --red:#bb0000;
-  --black:#0f0f0f;
-  --cream:#f5efe0;
-  --bg:var(--black);
-  --card:#171717;
-  --border:#2a2a2a;
-  --text:var(--cream);
-  --muted:#8a8578;
-  --btn-text:#0f0f0f
-}
-body.light{
-  --bg:var(--cream);
-  --card:#ffffff;
-  --border:#e0d5b8;
-  --text:#1a1a1a;
-  --muted:#6b5f45;
-  --btn-text:#fff
-}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{
-  background:var(--bg);color:var(--text);
-  font:16px system-ui,-apple-system,sans-serif;
-  min-height:100vh;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;padding:24px;
-  transition:background .2s,color .2s
-}
-.flagstripe{
-  position:fixed;top:0;left:0;right:0;height:6px;z-index:150;
-  background:linear-gradient(to right,
-    #000 0 25%, #bb0000 25% 50%, #1a4d2e 50% 75%, #c9a227 75% 100%)
-}
-.card{
-  background:var(--card);border:1px solid var(--border);
-  border-radius:20px;padding:36px 28px;max-width:460px;width:100%;
-  text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.35);
-  position:relative;overflow:hidden
-}
-.card::before{
-  content:"";position:absolute;top:0;left:0;right:0;height:4px;
-  background:linear-gradient(to right,#000 0 25%,#bb0000 25% 50%,#1a4d2e 50% 75%,#c9a227 75% 100%)
-}
-.brand{display:flex;align-items:center;justify-content:center;gap:14px;margin:8px 0 26px}
-.brand img{height:64px}
-.brand .name{font-size:24px;font-weight:800;letter-spacing:2px}
-.brand .name span{color:var(--gold)}
-.sub{color:var(--muted);font-size:14px;margin:0 0 22px;letter-spacing:.3px}
-.btn{
-  width:100%;padding:18px 22px;font-size:17px;font-weight:700;
-  border-radius:14px;border:0;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;gap:10px;
-  font-family:inherit;transition:all .15s;letter-spacing:.5px
-}
-.btn+.btn{margin-top:12px}
-.btn .ico{font-size:20px}
-.btn.primary{
-  background:linear-gradient(135deg,var(--gold) 0%,var(--gold-hi) 100%);
-  color:var(--btn-text);box-shadow:0 6px 18px rgba(201,162,39,.35)
-}
-.btn.primary:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(201,162,39,.5)}
-.btn.primary:disabled{opacity:.45;cursor:default;transform:none}
-.btn.secondary{
-  background:linear-gradient(135deg,var(--green) 0%,var(--green-hi) 100%);
-  color:#fff;box-shadow:0 6px 18px rgba(26,77,46,.4)
-}
-.btn.secondary:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(26,77,46,.55)}
-.btn.secondary:disabled{opacity:.45;cursor:default;transform:none}
-.btn.danger{
-  background:linear-gradient(135deg,#8a0000 0%,var(--red) 100%);
-  color:#fff;box-shadow:0 6px 18px rgba(187,0,0,.4)
-}
-.btn.danger:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(187,0,0,.55)}
-.select{
-  width:100%;padding:18px 20px;font-size:17px;font-weight:600;
-  border-radius:14px;border:2px solid var(--border);
-  background:var(--bg);color:var(--text);font-family:inherit;
-  margin-bottom:12px;cursor:pointer;appearance:none;
-  background-image:linear-gradient(45deg,transparent 50%,var(--gold) 50%),linear-gradient(135deg,var(--gold) 50%,transparent 50%);
-  background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;
-  background-size:6px 6px,6px 6px;background-repeat:no-repeat;padding-right:44px
-}
-.select:focus{border-color:var(--gold);outline:none}
-.customInput{
-  width:100%;padding:16px 20px;font-size:16px;font-weight:600;
-  border-radius:14px;border:2px dashed var(--gold);
-  background:var(--bg);color:var(--text);font-family:inherit;
-  margin-bottom:16px;text-align:center
-}
-.customInput:focus{border-style:solid;outline:none}
-.customInput::placeholder{color:var(--muted);font-weight:400;font-size:14px}
-.divider{
-  display:flex;align-items:center;gap:12px;color:var(--muted);
-  font-size:12px;letter-spacing:1px;margin:14px 0
-}
-.divider::before,.divider::after{
-  content:"";flex:1;height:1px;background:var(--border)
-}
-.screen{display:none}
-.screen.show{display:flex;flex-direction:column;align-items:center}
-#rolePicker.show,#classPicker.show{min-height:100vh;justify-content:center;width:100%}
-#secBanner{
-  position:fixed;top:6px;left:0;right:0;
-  background:linear-gradient(90deg,#8a0000,#bb0000,#8a0000);
-  color:#fff;font-size:13px;padding:8px 12px;text-align:center;
-  z-index:200;display:none;font-weight:700;letter-spacing:.5px
-}
-#secBanner.show{display:block}
-#themeToggle{
-  position:fixed;top:18px;right:18px;z-index:100;font-size:18px;
-  background:var(--card);border:1px solid var(--border);cursor:pointer;
-  padding:10px 14px;border-radius:12px;color:var(--text);transition:all .15s
-}
-#themeToggle:hover{border-color:var(--gold);color:var(--gold)}
-#stage{flex:1;position:relative;display:flex;overflow:hidden}
-#rv{width:100%;height:100%;object-fit:contain;display:none}
-#waiting{
-  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  color:var(--muted);font-size:20px;z-index:5;background:var(--bg);
-  flex-direction:column;gap:12px
-}
-#waiting.hidden{display:none}
-#vstatus{
-  position:absolute;bottom:14px;left:14px;font:13px ui-monospace,monospace;
-  color:var(--text);background:rgba(0,0,0,.55);padding:6px 12px;border-radius:8px;z-index:20
-}
-#vctrl{
-  position:absolute;top:14px;right:14px;z-index:30;display:flex;gap:8px;
-  background:rgba(0,0,0,.65);padding:8px 12px;border-radius:12px;
-  align-items:center;backdrop-filter:blur(8px)
-}
-#vctrl button{
-  font-size:14px;padding:8px 14px;border:0;border-radius:8px;
-  background:var(--gold);color:var(--btn-text);cursor:pointer;font-weight:700
-}
-#vctrl button:hover{background:var(--gold-hi)}
-#vol{width:100px;accent-color:var(--gold)}
-#exitBtn{
-  position:absolute;top:14px;left:14px;z-index:30;font-size:13px;
-  padding:8px 14px;background:var(--red);color:#fff;border:0;border-radius:8px;
-  cursor:pointer;font-weight:700
-}
-#viewer{display:none;position:fixed;inset:0;background:var(--bg)}
-#viewer.show{display:flex}
-#sender{text-align:center;width:100%;max-width:640px}
-#slog{margin-top:20px;font-family:ui-monospace,monospace;font-size:13px;color:var(--muted);line-height:1.6}
-#sstats{margin-top:10px;font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);opacity:.7}
-#smode{margin-top:14px;font-size:14px;color:var(--gold);font-weight:700;letter-spacing:.5px}
-#ssources{margin-top:6px;font-size:13px;color:var(--muted)}
-#sender video{display:none}
-#preview{
-  position:fixed;bottom:16px;right:16px;width:280px;background:#000;
-  border:2px solid var(--gold);border-radius:12px;z-index:50;display:none;overflow:hidden
-}
-#pv{width:100%;display:block}
-.linkbox{
-  background:var(--bg);border:1px dashed var(--gold);border-radius:12px;
-  padding:14px 16px;margin-top:22px;font-family:ui-monospace,monospace;
-  font-size:12px;word-break:break-all;color:var(--muted);line-height:1.6
-}
-.linkbox span{color:var(--gold);font-weight:700}
-#sclass{font-size:13px;color:var(--muted);margin-bottom:20px;letter-spacing:.5px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:16px system-ui,-apple-system,sans-serif;background:#0f0f0f;color:#f5efe0;min-height:100vh}
+.stripe{position:fixed;top:0;left:0;right:0;height:6px;z-index:100;background:linear-gradient(to right,#000 0 25%,#bb0000 25% 50%,#1a4d2e 50% 75%,#c9a227 75% 100%)}
+.wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:16px;padding:32px;max-width:460px;width:100%;text-align:center}
+.logo{font-size:26px;font-weight:800;letter-spacing:2px;margin-bottom:24px}
+.logo span{color:#c9a227}
+.sub{color:#8a8578;font-size:14px;margin-bottom:20px}
+.btn{width:100%;padding:18px;font-size:16px;font-weight:700;border:0;border-radius:12px;cursor:pointer;font-family:inherit;margin-top:12px;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-gold{background:linear-gradient(135deg,#c9a227,#e0b93a);color:#0f0f0f}
+.btn-green{background:linear-gradient(135deg,#1a4d2e,#2a7043);color:#fff}
+.btn-red{background:linear-gradient(135deg,#8a0000,#bb0000);color:#fff}
+.btn:disabled{opacity:.5;cursor:default}
+select,input{width:100%;padding:16px;font-size:16px;border:2px solid #2a2a2a;border-radius:12px;background:#0f0f0f;color:#f5efe0;font-family:inherit;margin-bottom:12px}
+select:focus,input:focus{outline:none;border-color:#c9a227}
+.divider{color:#8a8578;font-size:13px;margin:16px 0}
+.hidden{display:none !important}
+#rv{display:block;width:100vw;height:100vh;object-fit:contain;background:#000}
+#viewer{position:fixed;inset:0;background:#000}
+#status{position:fixed;top:12px;left:12px;background:rgba(0,0,0,.75);padding:8px 14px;border-radius:8px;font:12px ui-monospace,monospace;z-index:10;color:#fff;max-width:80vw}
+#controls{position:fixed;top:12px;right:12px;display:flex;gap:8px;background:rgba(0,0,0,.75);padding:8px;border-radius:8px;z-index:10;align-items:center}
+#controls button{padding:8px 14px;border:0;border-radius:6px;background:#c9a227;color:#0f0f0f;font-weight:700;cursor:pointer}
+#controls input{width:90px;margin:0;padding:0}
+#exitBtn{position:fixed;top:12px;left:12px;background:#8a0000;color:#fff;border:0;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;z-index:11}
+#waiting{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;font-size:20px;z-index:5;flex-direction:column;gap:12px}
+#preview{position:fixed;bottom:16px;right:16px;width:240px;border:2px solid #c9a227;border-radius:8px;z-index:50;background:#000}
+#preview video{width:100%;display:block}
+#banner{position:fixed;top:6px;left:0;right:0;background:#bb0000;color:#fff;text-align:center;padding:8px;font-weight:700;z-index:99;font-size:13px;display:none}
+.linkbox{background:#0f0f0f;border:1px dashed #c9a227;border-radius:8px;padding:12px;margin-top:20px;font:11px ui-monospace,monospace;word-break:break-all;color:#8a8578}
+.linkbox span{color:#c9a227;font-weight:700}
+#senderInfo{margin-top:20px;font:12px ui-monospace,monospace;color:#8a8578;line-height:1.6}
 </style>
 </head>
 <body>
-<div class="flagstripe"></div>
-<button id="themeToggle" onclick="toggleTheme()" title="Toggle theme">🌙</button>
-<div id="secBanner">🔴 Your screen is being shared</div>
+<div class="stripe"></div>
+<div id="banner">🔴 Your screen is being shared</div>
 
-<div id="rolePicker" class="screen">
-<div class="card">
-<div class="brand">
-<img src="logo.png" alt="KSG">
-<div class="name">KSG <span>LIVE</span></div>
-</div>
-<p class="sub">Choose your role to continue</p>
-<button class="btn primary" onclick="pickRole('presenter')"><span class="ico">📺</span> I am Presenting</button>
-<button class="btn secondary" onclick="pickRole('viewer')"><span class="ico">👁️</span> I am Watching</button>
-</div>
+<div id="role" class="wrap">
+  <div class="card">
+    <div class="logo">KSG <span>LIVE</span></div>
+    <p class="sub">Choose your role</p>
+    <button class="btn btn-gold" onclick="setRole('presenter')">📺 I am Presenting</button>
+    <button class="btn btn-green" onclick="setRole('viewer')">👁 I am Watching</button>
+  </div>
 </div>
 
-<div id="classPicker" class="screen">
-<div class="card">
-<div class="brand">
-<img src="logo.png" alt="KSG">
-<div class="name">KSG <span>LIVE</span></div>
-</div>
-<p class="sub" id="classSub">Choose a class</p>
-<select id="classSel" class="select"></select>
-<div class="divider">OR</div>
-<input id="classCustom" class="customInput" type="text" placeholder="Type your own class name" maxlength="40">
-<button class="btn primary" onclick="enterClass()"><span class="ico">→</span> Enter</button>
-<button class="btn danger" onclick="switchRole()"><span class="ico">↺</span> Back</button>
-</div>
+<div id="classStep" class="wrap hidden">
+  <div class="card">
+    <div class="logo">KSG <span>LIVE</span></div>
+    <p class="sub" id="classSub">Choose class</p>
+    <select id="roomSel"></select>
+    <div class="divider">OR</div>
+    <input id="roomCustom" placeholder="Type your own class name">
+    <button class="btn btn-gold" onclick="enterRoom()">Enter</button>
+    <button class="btn btn-red" onclick="backToRole()">Back</button>
+  </div>
 </div>
 
-<div id="sender" class="screen">
-<div class="brand">
-<img src="logo.png" alt="KSG">
-<div class="name">KSG <span>LIVE</span></div>
-</div>
-<div id="sclass"></div>
-<button id="start" class="btn primary"><span class="ico">▶</span> Start Sharing</button>
-<button id="muteBtn" class="btn secondary" disabled><span class="ico">🎤</span> Mute Mic</button>
-<button id="exitBtn2" class="btn danger"><span class="ico">✕</span> Exit</button>
-<div id="smode">Mode: idle</div>
-<div id="ssources">Sources: —</div>
-<div id="slog">Click Start Sharing. Pick Entire Screen. Tick "Share system audio".</div>
-<div id="sstats"></div>
-<div class="linkbox">📎 Share this with viewers<br><span id="shareLink"></span></div>
-<video id="v" autoplay muted playsinline></video>
-<div id="preview"><video id="pv" autoplay muted playsinline></video></div>
+<div id="sender" class="wrap hidden">
+  <div class="card">
+    <div class="logo">KSG <span>LIVE</span></div>
+    <div class="sub" id="roomLabel"></div>
+    <button id="startBtn" class="btn btn-gold">▶ Start Sharing</button>
+    <button id="muteBtn" class="btn btn-green" disabled>🎤 Mute Mic</button>
+    <button class="btn btn-red" onclick="backToRole()">Exit</button>
+    <div id="senderInfo">Mode: idle</div>
+    <div class="linkbox">Share this with viewers:<br><span id="shareUrl"></span></div>
+  </div>
+  <div id="preview" class="hidden"><video id="pv" autoplay muted playsinline></video></div>
 </div>
 
-<div id="viewer">
-<div id="stage">
-<video id="rv" autoplay playsinline muted></video>
-<div id="waiting"><div>⏳</div><div id="waitText">Waiting for presenter...</div></div>
-<div id="vstatus">Connecting...</div>
-<button id="exitBtn">Exit</button>
-<div id="vctrl">
-<button id="fullBtn">⛶</button>
-<button id="muteBtnV">🔊</button>
-<input id="vol" type="range" min="0" max="100" value="100">
-</div>
-</div>
+<div id="viewer" class="hidden">
+  <video id="rv" autoplay playsinline muted></video>
+  <div id="waiting"><div>⏳</div><div id="waitText">Waiting for presenter...</div></div>
+  <div id="status">Connecting...</div>
+  <button id="exitBtn" onclick="backToRole()">Exit</button>
+  <div id="controls">
+    <button id="fsBtn">Fullscreen</button>
+    <button id="spkBtn">🔇</button>
+    <input id="vol" type="range" min="0" max="100" value="100">
+  </div>
 </div>
 
 <script>
-function toggleTheme(){
-document.body.classList.toggle("light");
-var isLight=document.body.classList.contains("light");
-document.getElementById("themeToggle").textContent=isLight?"☀️":"🌙";
-try{localStorage.setItem("ksg-theme",isLight?"light":"dark");}catch(e){}
-}
-(function(){
-try{
-if(localStorage.getItem("ksg-theme")==="light"){
-document.body.classList.add("light");
-document.getElementById("themeToggle").textContent="☀️";
-}
-}catch(e){}
-})();
+var params = new URLSearchParams(location.search);
+var ROLE = params.get("role");
+var ROOM = params.get("room") || "";
+var viewerId = "v" + Math.random().toString(36).slice(2,10);
 
-var params=new URLSearchParams(location.search);
-var ROLE=params.get("role");
-var ROOM=params.get("room")||"";
-var el=function(id){return document.getElementById(id);};
-var viewerId="v-"+Math.random().toString(36).slice(2,10);
-var streaming=false,micMuted=false,sigSince=0;
-var pc=null,peers={},ICE=[{urls:"stun:stun.l.google.com:19302"}];
+var ICE = [
+  {urls:"stun:stun.relay.metered.ca:80"},
+  {urls:"turn:global.relay.metered.ca:80",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"},
+  {urls:"turn:global.relay.metered.ca:80?transport=tcp",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"},
+  {urls:"turn:global.relay.metered.ca:443",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"},
+  {urls:"turns:global.relay.metered.ca:443?transport=tcp",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"}
+];
 
-function show(e){e.classList.add("show");}
-function hide(e){e.classList.remove("show");}
-function setRoomLocal(r){try{localStorage.setItem("ksg-room",r);}catch(e){}}
-function getRoomLocal(){try{return localStorage.getItem("ksg-room")||"";}catch(e){return "";}}
+var $ = function(id){return document.getElementById(id);};
+var sigSince = 0;
+var streaming = false;
+var micMuted = false;
+var pc = null;
+var peers = {};
+var statusBase = "Mode: WebRTC";
 
-function pickRole(r){
-var u=new URL(location.href);
-u.searchParams.set("role",r);
-u.searchParams.delete("room");
-location.href=u.toString();
-}
-function switchRole(){
-var u=new URL(location.href);
-u.searchParams.delete("role");
-u.searchParams.delete("room");
-location.href=u.toString();
-}
-function enterClass(){
-var custom=(el("classCustom").value||"").trim().replace(/[^a-zA-Z0-9 _-]/g,"");
-var v=custom || el("classSel").value;
-if(!v)return;
-setRoomLocal(v);
-var u=new URL(location.href);
-u.searchParams.set("role",ROLE);
-u.searchParams.set("room",v);
-location.href=u.toString();
+if (!ROLE) {
+  $("role").classList.remove("hidden");
+} else if (!ROOM) {
+  $("classStep").classList.remove("hidden");
+  $("classSub").textContent = ROLE === "presenter" ? "Which class are you presenting to?" : "Which class are you watching?";
+  loadRooms();
+} else if (ROLE === "presenter") {
+  $("sender").classList.remove("hidden");
+  $("roomLabel").textContent = "Room: " + ROOM;
+  $("shareUrl").textContent = location.origin + location.pathname + "?role=viewer&room=" + encodeURIComponent(ROOM);
+  setupSender();
+} else {
+  $("viewer").classList.remove("hidden");
+  $("waitText").textContent = "Waiting for presenter in " + ROOM + "...";
+  setupViewer();
 }
 
-if(!ROLE){
-show(el("rolePicker"));
-}else if(!ROOM){
-el("classSub").textContent=(ROLE==="presenter"?"Which class are you presenting to?":"Which class are you watching?");
-fetch("rooms.php")
-.then(function(r){return r.json();})
-.then(function(list){
-var sel=el("classSel");
-sel.innerHTML="";
-if(!list||list.length===0){list=["Class 1","Class 2","Class 3"];}
-for(var i=0;i<list.length;i++){
-var o=document.createElement("option");
-o.value=list[i];o.textContent=list[i];
-sel.appendChild(o);
+function setRole(r){
+  var u = new URL(location.href);
+  u.searchParams.set("role", r);
+  u.searchParams.delete("room");
+  location.href = u.toString();
 }
-var saved=getRoomLocal();
-if(saved){
-for(var j=0;j<sel.options.length;j++){
-if(sel.options[j].value===saved){sel.selectedIndex=j;break;}
+function backToRole(){
+  location.href = location.pathname;
 }
-el("classCustom").value=saved;
+function enterRoom(){
+  var custom = ($("roomCustom").value || "").trim().replace(/[^a-zA-Z0-9 _-]/g,"");
+  var v = custom || $("roomSel").value;
+  if (!v) return;
+  var u = new URL(location.href);
+  u.searchParams.set("role", ROLE);
+  u.searchParams.set("room", v);
+  location.href = u.toString();
 }
-})
-.catch(function(){
-var sel=el("classSel");
-sel.innerHTML="";
-["Class 1","Class 2","Class 3"].forEach(function(n){
-var o=document.createElement("option");o.value=n;o.textContent=n;sel.appendChild(o);
-});
-});
-show(el("classPicker"));
-}else if(ROLE==="presenter"){
-el("sclass").textContent="Room: "+ROOM;
-show(el("sender"));
-el("shareLink").textContent=location.origin+location.pathname+"?role=viewer&room="+encodeURIComponent(ROOM);
-setupSender();
-}else{
-el("waitText").textContent="Waiting for presenter in "+ROOM+"...";
-show(el("viewer"));
-setupViewer();
+function loadRooms(){
+  fetch("rooms.php").then(function(r){return r.json();}).then(function(list){
+    var sel = $("roomSel");
+    sel.innerHTML = "";
+    if (!list || !list.length) list = ["Class 1","Class 2","Class 3"];
+    list.forEach(function(n){
+      var o = document.createElement("option");
+      o.value = n; o.textContent = n;
+      sel.appendChild(o);
+    });
+  }).catch(function(){
+    var sel = $("roomSel");
+    sel.innerHTML = "";
+    ["Class 1","Class 2","Class 3"].forEach(function(n){
+      var o = document.createElement("option");
+      o.value = n; o.textContent = n;
+      sel.appendChild(o);
+    });
+  });
 }
 
-function sigUrl(extra){return "signal.php?channel="+encodeURIComponent(ROOM)+(extra||"");}
+function sigUrl(extra){ return "signal.php?channel=" + encodeURIComponent(ROOM) + (extra||""); }
 function sigSend(obj){
-fetch(sigUrl(""),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(obj)}).catch(function(){});
+  fetch(sigUrl(""), {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(obj)
+  }).catch(function(){});
 }
 function sigPoll(handler){
-var backoff=300;
-function tick(){
-fetch(sigUrl("&since="+sigSince))
-.then(function(r){return r.json();})
-.then(function(arr){
-if(Array.isArray(arr)){
-for(var i=0;i<arr.length;i++){
-sigSince=Math.max(sigSince,arr[i].id);
-handler(arr[i].body);
+  var backoff = 300;
+  function tick(){
+    fetch(sigUrl("&since=" + sigSince))
+    .then(function(r){ return r.json(); })
+    .then(function(arr){
+      if (Array.isArray(arr)) {
+        for (var i = 0; i < arr.length; i++) {
+          sigSince = Math.max(sigSince, arr[i].id);
+          handler(arr[i].body);
+        }
+      }
+      backoff = 300;
+    })
+    .catch(function(){ backoff = Math.min(backoff * 1.5, 5000); })
+    .then(function(){ setTimeout(tick, backoff); });
+  }
+  tick();
 }
-}
-backoff=300;
-})
-.catch(function(){backoff=Math.min(backoff*1.5,5000);})
-.then(function(){setTimeout(tick,backoff);});
-}
-tick();
-}
-
-el("muteBtn").addEventListener("click",function(){
-micMuted=!micMuted;
-var s=el("v").srcObject;
-if(s)s.getAudioTracks().forEach(function(t){t.enabled=!micMuted;});
-el("muteBtn").innerHTML='<span class="ico">'+(micMuted?"🔇":"🎤")+'</span> '+(micMuted?"Unmute Mic":"Mute Mic");
-});
-el("exitBtn2").addEventListener("click",switchRole);
-el("exitBtn").addEventListener("click",switchRole);
 
 function setupSender(){
-el("start").addEventListener("click",function(){
-if(streaming)return;
-var startBtn=el("start");
-startBtn.disabled=true;
+  $("muteBtn").addEventListener("click", function(){
+    micMuted = !micMuted;
+    var s = $("pv").srcObject;
+    if (s) s.getAudioTracks().forEach(function(t){ t.enabled = !micMuted; });
+    $("muteBtn").textContent = micMuted ? "🔇 Unmute Mic" : "🎤 Mute Mic";
+  });
 
-navigator.mediaDevices.getDisplayMedia({video:{frameRate:30,width:{ideal:1920},height:{ideal:1080}},audio:true})
-.then(function(display){
-return navigator.mediaDevices.getUserMedia({audio:true})
-.then(function(mic){return {display:display,mic:mic};})
-.catch(function(){return {display:display,mic:null};});
-})
-.then(function(res){
-var combined=new MediaStream();
-res.display.getVideoTracks().forEach(function(t){t.contentHint="detail";combined.addTrack(t);});
-res.display.getAudioTracks().forEach(function(t){combined.addTrack(t);});
-if(res.mic)res.mic.getAudioTracks().forEach(function(t){combined.addTrack(t);});
+  $("startBtn").addEventListener("click", function(){
+    if (streaming) return;
+    $("startBtn").disabled = true;
 
-el("v").srcObject=combined;
-el("v").play();
-el("pv").srcObject=combined;
-el("preview").style.display="block";
-el("secBanner").classList.add("show");
-streaming=true;
+    navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true })
+    .then(function(display){
+      return navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(function(mic){ return { display: display, mic: mic }; })
+      .catch(function(){ return { display: display, mic: null }; });
+    })
+    .then(function(res){
+      var combined = new MediaStream();
+      res.display.getVideoTracks().forEach(function(t){ combined.addTrack(t); });
+      res.display.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
+      if (res.mic) res.mic.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
 
-var srcs="Sources: screen";
-if(res.display.getAudioTracks().length)srcs+=" + system audio";
-if(res.mic)srcs+=" + mic";
-el("ssources").textContent=srcs;
-el("muteBtn").disabled=!res.mic;
-startBtn.innerHTML='<span class="ico">●</span> Sharing...';
-el("slog").textContent="Sharing. Waiting for viewers.";
-el("smode").textContent="Mode: WebRTC";
+      $("pv").srcObject = combined;
+      $("pv").play();
+      $("preview").classList.remove("hidden");
+      $("banner").style.display = "block";
+      streaming = true;
 
-sigPoll(function(body){
-if(!body)return;
-if(body.type==="join"&&body.from&&!peers[body.from])newPeer(body.from,combined);
-else if(body.type==="answer"&&body.from&&peers[body.from])peers[body.from].setRemoteDescription(body.data).catch(function(){});
-else if(body.type==="vcandidate"&&body.from&&peers[body.from])peers[body.from].addIceCandidate(body.data).catch(function(){});
-});
+      statusBase = "Mode: WebRTC | screen";
+      if (res.display.getAudioTracks().length) statusBase += " + system";
+      if (res.mic) statusBase += " + mic";
+      $("senderInfo").textContent = statusBase + " | Viewers: 0";
+      $("muteBtn").disabled = !res.mic;
+      $("startBtn").textContent = "● Sharing...";
 
-function newPeer(vid,stream){
-var peer=new RTCPeerConnection({iceServers:ICE});
-peers[vid]=peer;
-el("sstats").textContent="Viewers: "+Object.keys(peers).length;
-stream.getTracks().forEach(function(t){
-var sender=peer.addTrack(t,stream);
-if(t.kind==="video"){
-var p=sender.getParameters();
-if(!p.encodings)p.encodings=[{}];
-p.encodings[0].maxBitrate=8000000;
-p.encodings[0].maxFramerate=30;
-try{sender.setParameters(p);}catch(e){}
-}
-});
-peer.onicecandidate=function(e){if(e.candidate)sigSend({from:"sender",to:vid,type:"scandidate",data:e.candidate});};
-peer.onconnectionstatechange=function(){
-var st=peer.connectionState;
-if(st==="failed"||st==="closed"||st==="disconnected"){
-try{peer.close();}catch(e){}
-delete peers[vid];
-el("sstats").textContent="Viewers: "+Object.keys(peers).length;
-}
-};
-peer.createOffer().then(function(offer){
-return peer.setLocalDescription(offer).then(function(){
-sigSend({from:"sender",to:vid,type:"offer",data:{type:offer.type,sdp:offer.sdp}});
-});
-});
-}
+      sigPoll(function(body){
+        if (!body) return;
+        if (body.type === "join" && body.from && !peers[body.from]) newPeer(body.from, combined);
+        else if (body.type === "answer" && body.from && peers[body.from]) {
+          peers[body.from].setRemoteDescription(body.data).catch(function(){});
+        }
+        else if (body.type === "vcandidate" && body.from && peers[body.from]) {
+          peers[body.from].addIceCandidate(body.data).catch(function(){});
+        }
+      });
 
-res.display.getVideoTracks()[0].addEventListener("ended",function(){
-streaming=false;
-startBtn.disabled=false;
-startBtn.innerHTML='<span class="ico">▶</span> Start Sharing';
-el("preview").style.display="none";
-el("secBanner").classList.remove("show");
-el("smode").textContent="Mode: idle";
-Object.keys(peers).forEach(function(id){try{peers[id].close();}catch(e){}delete peers[id];});
-});
-})
-.catch(function(){el("slog").textContent="Cancelled.";startBtn.disabled=false;});
-});
+      function newPeer(vid, stream){
+        var peer = new RTCPeerConnection({ iceServers: ICE });
+        peers[vid] = peer;
+
+        stream.getTracks().forEach(function(t){ peer.addTrack(t, stream); });
+
+        peer.onicecandidate = function(e){
+          if (e.candidate) sigSend({from:"sender", to:vid, type:"scandidate", data:e.candidate});
+        };
+        peer.onconnectionstatechange = function(){
+          var st = peer.connectionState;
+          if (st === "failed" || st === "closed" || st === "disconnected") {
+            try { peer.close(); } catch(e) {}
+            delete peers[vid];
+          }
+          $("senderInfo").textContent = statusBase + " | Viewers: " + Object.keys(peers).length;
+        };
+
+        peer.createOffer().then(function(offer){
+          return peer.setLocalDescription(offer).then(function(){
+            sigSend({from:"sender", to:vid, type:"offer", data:{type:offer.type, sdp:offer.sdp}});
+          });
+        });
+      }
+
+      res.display.getVideoTracks()[0].addEventListener("ended", function(){
+        streaming = false;
+        $("startBtn").disabled = false;
+        $("startBtn").textContent = "▶ Start Sharing";
+        $("preview").classList.add("hidden");
+        $("banner").style.display = "none";
+        $("senderInfo").textContent = "Mode: idle";
+        Object.keys(peers).forEach(function(id){ try{ peers[id].close(); }catch(e){} delete peers[id]; });
+      });
+    })
+    .catch(function(){ $("startBtn").disabled = false; });
+  });
 }
 
 function setupViewer(){
-var rv=el("rv");
-var waiting=el("waiting");
-var vstatus=el("vstatus");
+  var rv = $("rv");
 
-el("fullBtn").addEventListener("click",function(){
-if(!document.fullscreenElement)document.documentElement.requestFullscreen();
-else document.exitFullscreen();
-});
-el("muteBtnV").addEventListener("click",function(){
-rv.muted=!rv.muted;
-el("muteBtnV").textContent=rv.muted?"🔇":"🔊";
-});
-el("vol").addEventListener("input",function(e){rv.volume=e.target.value/100;});
+  document.addEventListener("click", function(){
+    rv.muted = false;
+    $("spkBtn").textContent = "🔊";
+  }, { once: true });
 
-pc=new RTCPeerConnection({iceServers:ICE});
-pc.ontrack=function(e){
-rv.srcObject=e.streams[0];
-rv.style.display="block";
-waiting.classList.add("hidden");
-vstatus.textContent="Live — "+ROOM;
-};
-pc.onicecandidate=function(e){if(e.candidate)sigSend({from:viewerId,to:"sender",type:"vcandidate",data:e.candidate});};
-setInterval(function(){var v=document.getElementById("rv");document.getElementById("vstatus").textContent="PC:"+pc.connectionState+" ICE:"+pc.iceConnectionState+" SRC:"+(v.srcObject?"y":"n")+" RS:"+v.readyState;},1000);
-pc.onconnectionstatechange=function(){
-var st=pc.connectionState;
-if(st==="failed"||st==="disconnected"||st==="closed"){
-rv.style.display="none";
-waiting.classList.remove("hidden");
-el("waitText").textContent="Reconnecting...";
-vstatus.textContent="Reconnecting...";
-}
-};
+  $("fsBtn").addEventListener("click", function(){
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+    else document.exitFullscreen();
+  });
+  $("spkBtn").addEventListener("click", function(){
+    rv.muted = !rv.muted;
+    $("spkBtn").textContent = rv.muted ? "🔇" : "🔊";
+  });
+  $("vol").addEventListener("input", function(e){ rv.volume = e.target.value / 100; });
 
-sigSend({from:viewerId,to:"sender",type:"join"});
+  pc = new RTCPeerConnection({ iceServers: ICE });
 
-sigPoll(function(body){
-if(!body)return;
-if(body.to!==viewerId&&body.to!=="*")return;
-if(body.type==="offer"){
-pc.setRemoteDescription(body.data)
-.then(function(){return pc.createAnswer();})
-.then(function(ans){return pc.setLocalDescription(ans).then(function(){
-sigSend({from:viewerId,to:"sender",type:"answer",data:{type:ans.type,sdp:ans.sdp}});
-});})
-.catch(function(){});
-}else if(body.type==="scandidate"){
-pc.addIceCandidate(body.data).catch(function(){});
-}
-});
+  pc.ontrack = function(e){
+    rv.srcObject = e.streams[0];
+    $("waiting").classList.add("hidden");
+    rv.play().catch(function(){});
+  };
+
+  pc.onicecandidate = function(e){
+    if (e.candidate) sigSend({from:viewerId, to:"sender", type:"vcandidate", data:e.candidate});
+  };
+
+  pc.onconnectionstatechange = function(){
+    var st = pc.connectionState;
+    if (st === "failed" || st === "disconnected" || st === "closed") {
+      $("waiting").classList.remove("hidden");
+      $("waitText").textContent = "Reconnecting...";
+    }
+  };
+
+  setInterval(function(){
+    var v = $("rv");
+    var s = "PC:" + pc.connectionState + " ICE:" + pc.iceConnectionState + " SRC:" + (v.srcObject ? "y" : "n") + " RS:" + v.readyState;
+    $("status").textContent = s;
+  }, 1000);
+
+  sigSend({from:viewerId, to:"sender", type:"join"});
+
+  sigPoll(function(body){
+    if (!body) return;
+    if (body.to !== viewerId && body.to !== "*") return;
+    if (body.type === "offer") {
+      pc.setRemoteDescription(body.data)
+      .then(function(){ return pc.createAnswer(); })
+      .then(function(ans){ return pc.setLocalDescription(ans).then(function(){
+        sigSend({from:viewerId, to:"sender", type:"answer", data:{type:ans.type, sdp:ans.sdp}});
+      }); })
+      .catch(function(){});
+    } else if (body.type === "scandidate") {
+      pc.addIceCandidate(body.data).catch(function(){});
+    }
+  });
 }
 </script>
 </body>
