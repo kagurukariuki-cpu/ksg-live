@@ -14,7 +14,7 @@ $rooms = [];
 foreach ($data['msgs'] as $m) {
     $body = isset($m['body']) ? $m['body'] : null;
     if (!$body || !isset($body->room) || !isset($body->t)) continue;
-    if ($now - intval($body->t) > 15) continue;
+    if ($now - intval($body->t) > 8) continue;
     if (!in_array($body->room, $rooms)) $rooms[] = $body->room;
 }
 echo json_encode($rooms);
