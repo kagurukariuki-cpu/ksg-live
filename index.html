@@ -29,13 +29,30 @@ select:focus,input:focus{outline:none;border-color:#c9a227}
 #controls button{padding:8px 14px;border:0;border-radius:6px;background:#c9a227;color:#0f0f0f;font-weight:700;cursor:pointer}
 #controls input{width:90px;margin:0;padding:0}
 #exitBtn{position:fixed;top:12px;left:12px;background:#8a0000;color:#fff;border:0;padding:8px 14px;border-radius:8px;font-weight:700;cursor:pointer;z-index:11}
-#waiting{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;font-size:20px;z-index:5;flex-direction:column;gap:12px}
+#waiting{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;z-index:5;flex-direction:column;gap:12px;padding:20px;text-align:center;font-size:clamp(16px,4vw,24px)}
 #preview{position:fixed;bottom:16px;right:16px;width:240px;border:2px solid #c9a227;border-radius:8px;z-index:50;background:#000}
 #preview video{width:100%;display:block}
 #banner{position:fixed;top:6px;left:0;right:0;background:#bb0000;color:#fff;text-align:center;padding:8px;font-weight:700;z-index:99;font-size:13px;display:none}
 .linkbox{background:#0f0f0f;border:1px dashed #c9a227;border-radius:8px;padding:12px;margin-top:20px;font:11px ui-monospace,monospace;word-break:break-all;color:#8a8578}
 .linkbox span{color:#c9a227;font-weight:700}
 #senderInfo{margin-top:20px;font:12px ui-monospace,monospace;color:#8a8578;line-height:1.6}
+#viewerCount{margin-top:8px;font-size:14px;color:#c9a227;font-weight:700}
+@media(max-width:700px){
+  .card{padding:24px 20px;max-width:92vw}
+  .btn{padding:22px;font-size:17px;margin-top:16px}
+  .logo{font-size:22px}
+  #controls{bottom:20px;top:auto;left:50%;transform:translateX(-50%);right:auto;padding:10px;gap:10px}
+  #controls button{padding:14px 20px;font-size:16px}
+  #vol{width:110px;height:28px}
+  #exitBtn{top:auto;bottom:20px;left:12px;padding:14px 18px;font-size:15px}
+  #status{font-size:11px;padding:6px 10px;max-width:60vw}
+}
+@media(min-width:1400px){
+  .card{padding:44px 40px;max-width:560px}
+  .logo{font-size:32px}
+  .btn{padding:24px;font-size:18px}
+}
+*:focus-visible{outline:4px solid #c9a227;outline-offset:4px;border-radius:8px}
 </style>
 </head>
 <body>
@@ -71,6 +88,7 @@ select:focus,input:focus{outline:none;border-color:#c9a227}
     <button id="muteBtn" class="btn btn-green" disabled>🎤 Mute Mic</button>
     <button class="btn btn-red" onclick="backToRole()">Exit</button>
     <div id="senderInfo">Mode: idle</div>
+    <div id="viewerCount">👥 0 viewers connected</div>
     <div class="linkbox">Share this with viewers:<br><span id="shareUrl"></span></div>
   </div>
   <div id="preview" class="hidden"><video id="pv" autoplay muted playsinline></video></div>
@@ -93,6 +111,7 @@ var params = new URLSearchParams(location.search);
 var ROLE = params.get("role");
 var ROOM = params.get("room") || "";
 var viewerId = "v" + Math.random().toString(36).slice(2,10);
+var ROOM_TAG = ROOM ? ROOM + "_" + Math.random().toString(36).slice(2,6) : "";
 
 var ICE = [
   {urls:"stun:stun.relay.metered.ca:80"},
@@ -109,6 +128,8 @@ var micMuted = false;
 var pc = null;
 var peers = {};
 var statusBase = "Mode: WebRTC";
+var senderPollStarted = false;
+var senderCombined = null;
 
 if (!ROLE) {
   $("role").classList.remove("hidden");
@@ -194,11 +215,17 @@ function sigPoll(handler){
   tick();
 }
 
+function updateViewerCount(){
+  var n = Object.keys(peers).length;
+  $("viewerCount").textContent = "👥 " + n + " viewer" + (n === 1 ? "" : "s") + " connected";
+}
+
 function setupSender(){
   $("muteBtn").addEventListener("click", function(){
     micMuted = !micMuted;
-    var s = $("pv").srcObject;
-    if (s) s.getAudioTracks().forEach(function(t){ t.enabled = !micMuted; });
+    if (senderCombined) {
+      senderCombined.getAudioTracks().forEach(function(t){ t.enabled = !micMuted; });
+    }
     $("muteBtn").textContent = micMuted ? "🔇 Unmute Mic" : "🎤 Mute Mic";
   });
 
@@ -217,6 +244,7 @@ function setupSender(){
       res.display.getVideoTracks().forEach(function(t){ combined.addTrack(t); });
       res.display.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
       if (res.mic) res.mic.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
+      senderCombined = combined;
 
       $("pv").srcObject = combined;
       $("pv").play();
@@ -227,24 +255,30 @@ function setupSender(){
       statusBase = "Mode: WebRTC | screen";
       if (res.display.getAudioTracks().length) statusBase += " + system";
       if (res.mic) statusBase += " + mic";
-      $("senderInfo").textContent = statusBase + " | Viewers: 0";
+      $("senderInfo").textContent = statusBase;
       $("muteBtn").disabled = !res.mic;
       $("startBtn").textContent = "● Sharing...";
+      updateViewerCount();
 
-      sigPoll(function(body){
-        if (!body) return;
-        if (body.type === "join" && body.from && !peers[body.from]) newPeer(body.from, combined);
-        else if (body.type === "answer" && body.from && peers[body.from]) {
-          peers[body.from].setRemoteDescription(body.data).catch(function(){});
-        }
-        else if (body.type === "vcandidate" && body.from && peers[body.from]) {
-          peers[body.from].addIceCandidate(body.data).catch(function(){});
-        }
-      });
+      if (!senderPollStarted) {
+        senderPollStarted = true;
+        sigPoll(function(body){
+          if (!body) return;
+          if (body.type === "join" && body.from && !peers[body.from] && senderCombined) {
+            newPeer(body.from, senderCombined);
+          } else if (body.type === "answer" && body.from && peers[body.from]) {
+            peers[body.from].setRemoteDescription(body.data).catch(function(){});
+          } else if (body.type === "vcandidate" && body.from && peers[body.from]) {
+            peers[body.from].addIceCandidate(body.data).catch(function(){});
+          }
+        });
+      }
 
       function newPeer(vid, stream){
+        if (peers[vid]) return;
         var peer = new RTCPeerConnection({ iceServers: ICE });
         peers[vid] = peer;
+        updateViewerCount();
 
         stream.getTracks().forEach(function(t){ peer.addTrack(t, stream); });
 
@@ -256,8 +290,8 @@ function setupSender(){
           if (st === "failed" || st === "closed" || st === "disconnected") {
             try { peer.close(); } catch(e) {}
             delete peers[vid];
+            updateViewerCount();
           }
-          $("senderInfo").textContent = statusBase + " | Viewers: " + Object.keys(peers).length;
         };
 
         peer.createOffer().then(function(offer){
@@ -275,6 +309,7 @@ function setupSender(){
         $("banner").style.display = "none";
         $("senderInfo").textContent = "Mode: idle";
         Object.keys(peers).forEach(function(id){ try{ peers[id].close(); }catch(e){} delete peers[id]; });
+        updateViewerCount();
       });
     })
     .catch(function(){ $("startBtn").disabled = false; });
@@ -283,21 +318,37 @@ function setupSender(){
 
 function setupViewer(){
   var rv = $("rv");
+  var muted = true;
 
   document.addEventListener("click", function(){
-    rv.muted = false;
-    $("spkBtn").textContent = "🔊";
-  }, { once: true });
+    if (muted) {
+      rv.muted = false;
+      muted = false;
+      $("spkBtn").textContent = "🔊";
+    }
+  });
 
   $("fsBtn").addEventListener("click", function(){
-    if (!document.fullscreenElement) document.documentElement.requestFullscreen();
-    else document.exitFullscreen();
+    if (rv.webkitEnterFullscreen) { rv.webkitEnterFullscreen(); return; }
+    if (!document.fullscreenElement) {
+      var el = document.documentElement;
+      if (el.requestFullscreen) el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
   });
+
   $("spkBtn").addEventListener("click", function(){
-    rv.muted = !rv.muted;
-    $("spkBtn").textContent = rv.muted ? "🔇" : "🔊";
+    muted = !muted;
+    rv.muted = muted;
+    $("spkBtn").textContent = muted ? "🔇" : "🔊";
   });
-  $("vol").addEventListener("input", function(e){ rv.volume = e.target.value / 100; });
+
+  $("vol").addEventListener("input", function(e){
+    rv.volume = e.target.value / 100;
+  });
 
   pc = new RTCPeerConnection({ iceServers: ICE });
 
@@ -321,9 +372,8 @@ function setupViewer(){
 
   setInterval(function(){
     var v = $("rv");
-    var s = "PC:" + pc.connectionState + " ICE:" + pc.iceConnectionState + " SRC:" + (v.srcObject ? "y" : "n") + " RS:" + v.readyState;
-    $("status").textContent = s;
-  }, 1000);
+    $("status").textContent = "PC:" + pc.connectionState + " ICE:" + pc.iceConnectionState + " RS:" + v.readyState;
+  }, 1500);
 
   sigSend({from:viewerId, to:"sender", type:"join"});
 
