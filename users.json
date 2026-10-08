@@ -1,9 +1,0 @@
-{
-  "admin@ksg.ac.ke": {
-    "password_hash": "$2y$12$REPLACE_WITH_HASH",
-    "role": "admin",
-    "classes": [],
-    "must_change_password": true,
-    "password_changed_at": 0
-  }
-}
