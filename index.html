@@ -54,7 +54,7 @@ select,input{width:100%;padding:16px;font-size:16px;border:2px solid #2a2a2a;bor
     <div class="logo">KSG <span>LIVE</span></div>
     <p class="sub" id="classSub">Choose class</p>
     <select id="roomSel"></select>
-    <div id="noRooms" class="hidden">No live classes yet — type a name below</div>
+    <div id="noRooms" class="hidden">No live classes yet - type a name below</div>
     <input id="roomCustom" placeholder="Or type your own class name">
     <button class="btn btn-gold" onclick="enterRoom()">Enter</button>
     <a class="btn btn-red" href=".">Back</a>
@@ -109,7 +109,7 @@ var peers = {};
 var senderPollStarted = false;
 var senderCombined = null;
 var heartbeatTimer = null;
-var lastSigType = "—";
+var lastSigType = "-";
 
 function $(id){ return document.getElementById(id); }
 
@@ -137,9 +137,7 @@ function loadRooms(){
       $("noRooms").classList.remove("hidden");
     }
   })
-  .catch(function(){
-    $("noRooms").classList.remove("hidden");
-  });
+  .catch(function(){ $("noRooms").classList.remove("hidden"); });
 }
 
 function announceLive(){
@@ -154,16 +152,14 @@ function announceLive(){
 function startHeartbeat(){
   announceLive();
   if (heartbeatTimer) clearInterval(heartbeatTimer);
-  heartbeatTimer = setInterval(function(){
-    if (streaming) announceLive();
-  }, 2000);
+  heartbeatTimer = setInterval(function(){ if (streaming) announceLive(); }, 2000);
 }
 
 if (!ROLE) {
   $("role").classList.remove("hidden");
 } else if (!ROOM) {
   $("classStep").classList.remove("hidden");
-  $("classSub").textContent = ROLE === "presenter" ? "Which class are you presenting to?" : "Live classes — pick one";
+  $("classSub").textContent = ROLE === "presenter" ? "Which class are you presenting to?" : "Live classes - pick one";
   if (ROLE === "viewer") {
     loadRooms();
     setInterval(loadRooms, 2000);
@@ -268,34 +264,60 @@ function setupSender(){
       if (!senderPollStarted) {
         senderPollStarted = true;
         sigPoll(function(body){
-          if (!body) return;
-          if (body.type === "join" && body.from && !peers[body.from] && senderCombined) {
+          if (!body || !senderCombined) return;
+
+          if (body.type === "join" && body.from) {
             newPeer(body.from, senderCombined);
+
           } else if (body.type === "answer" && body.from && peers[body.from]) {
-            peers[body.from].setRemoteDescription(body.data).catch(function(){});
+            var entry = peers[body.from];
+            entry.pc.setRemoteDescription(body.data).then(function(){
+              var q = entry.pending; entry.pending = [];
+              q.forEach(function(c){ entry.pc.addIceCandidate(c).catch(function(){}); });
+            }).catch(function(){});
+
           } else if (body.type === "vcandidate" && body.from && peers[body.from]) {
-            peers[body.from].addIceCandidate(body.data).catch(function(){});
+            var e2 = peers[body.from];
+            if (e2.pc.remoteDescription) {
+              e2.pc.addIceCandidate(body.data).catch(function(){});
+            } else {
+              e2.pending.push(body.data);
+            }
           }
         });
       }
 
       function newPeer(vid, stream){
-        if (peers[vid]) return;
+        var existing = peers[vid];
+        if (existing) {
+          var st = existing.pc.connectionState || existing.pc.iceConnectionState;
+          if (st !== "failed" && st !== "closed") return;
+          try { existing.pc.close(); } catch(e){}
+          delete peers[vid];
+        }
+
         var peer = new RTCPeerConnection({ iceServers: ICE });
-        peers[vid] = peer;
+        var entry = { pc: peer, pending: [], startedAt: Date.now() };
+        peers[vid] = entry;
         updateViewerCount();
+
         stream.getTracks().forEach(function(t){ peer.addTrack(t, stream); });
+
         peer.onicecandidate = function(e){
           if (e.candidate) sigSend({from:"sender", to:vid, type:"scandidate", data:e.candidate});
         };
+
         peer.onconnectionstatechange = function(){
-          var st = peer.connectionState;
-          if (st === "failed" || st === "closed" || st === "disconnected") {
-            try { peer.close(); } catch(e) {}
-            delete peers[vid];
-            updateViewerCount();
+          var s = peer.connectionState || peer.iceConnectionState;
+          if (s === "failed" || s === "closed") {
+            try { peer.close(); } catch(e){}
+            if (peers[vid] && peers[vid].pc === peer) {
+              delete peers[vid];
+              updateViewerCount();
+            }
           }
         };
+
         peer.createOffer().then(function(offer){
           return peer.setLocalDescription(offer).then(function(){
             sigSend({from:"sender", to:vid, type:"offer", data:{type:offer.type, sdp:offer.sdp}});
@@ -309,7 +331,7 @@ function setupSender(){
         $("startBtn").textContent = "Start Sharing";
         $("preview").classList.add("hidden");
         $("senderInfo").textContent = "Mode: idle";
-        Object.keys(peers).forEach(function(id){ try{ peers[id].close(); }catch(e){} delete peers[id]; });
+        Object.keys(peers).forEach(function(id){ try{ peers[id].pc.close(); }catch(e){} delete peers[id]; });
         updateViewerCount();
         if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
       });
@@ -323,10 +345,10 @@ function setupViewer(){
   var muted = true;
   var gotVideo = false;
   var lastVideoTime = Date.now();
+  var stuckSince = 0;
+  var hasOffer = false;
 
-  function hideWaiting(){
-    $("waiting").classList.add("gone");
-  }
+  function hideWaiting(){ $("waiting").classList.add("gone"); }
 
   document.addEventListener("click", function(){
     if (muted) {
@@ -354,31 +376,39 @@ function setupViewer(){
     $("spkBtn").textContent = muted ? "Sound Off" : "Sound On";
   };
 
-  $("vol").oninput = function(e){
-    rv.volume = e.target.value / 100;
-  };
+  $("vol").oninput = function(e){ rv.volume = e.target.value / 100; };
 
-  pc = new RTCPeerConnection({ iceServers: ICE });
+  function attachHandlers(p){
+    p.ontrack = function(e){
+      rv.srcObject = e.streams[0];
+      rv.play().catch(function(){});
+      lastVideoTime = Date.now();
+    };
+    p.onicecandidate = function(e){
+      if (e.candidate) sigSend({from:viewerId, to:"sender", type:"vcandidate", data:e.candidate});
+    };
+    p.onconnectionstatechange = function(){
+      var st = p.connectionState || p.iceConnectionState;
+      if (st === "failed" || st === "closed") {
+        $("waiting").classList.remove("gone");
+        $("waitText").textContent = "Reconnecting...";
+        resetPeer();
+      }
+    };
+  }
 
-  pc.ontrack = function(e){
-    rv.srcObject = e.streams[0];
-    rv.play().catch(function(){});
-    lastVideoTime = Date.now();
-  };
+  function resetPeer(){
+    try { if (pc) pc.close(); } catch(e){}
+    viewerId = "v" + Math.random().toString(36).slice(2,10);
+    pc = new RTCPeerConnection({ iceServers: ICE });
+    attachHandlers(pc);
+    stuckSince = 0;
+    hasOffer = false;
+    sigSend({from:viewerId, to:"sender", type:"join"});
+  }
 
-  pc.onicecandidate = function(e){
-    if (e.candidate) sigSend({from:viewerId, to:"sender", type:"vcandidate", data:e.candidate});
-  };
+  resetPeer();
 
-  pc.onconnectionstatechange = function(){
-    var st = pc.connectionState;
-    if (st === "failed" || st === "disconnected" || st === "closed") {
-      $("waiting").classList.remove("gone");
-      $("waitText").textContent = "Reconnecting...";
-    }
-  };
-
-  // Main loop: watch videoWidth, hide overlay when real frames arrive
   setInterval(function(){
     var v = $("rv");
     var vw = v.videoWidth || 0;
@@ -388,44 +418,60 @@ function setupViewer(){
       hideWaiting();
       lastVideoTime = Date.now();
     }
+    var st = (pc && (pc.connectionState || pc.iceConnectionState)) || "new";
+    var ice = (pc && pc.iceConnectionState) || "new";
     $("status").textContent =
-      "PC:" + pc.connectionState +
-      " ICE:" + pc.iceConnectionState +
-      " RS:" + v.readyState +
-      " " + vw + "x" + vh +
-      " sig:" + sigSince +
-      " last:" + lastSigType;
+      "PC:" + st + " ICE:" + ice + " RS:" + v.readyState +
+      " " + vw + "x" + vh + " sig:" + sigSince + " last:" + lastSigType;
   }, 500);
 
-  // Retry play every second (autoplay enforcement)
+  setInterval(function(){
+    if (!pc) return;
+    var st = pc.connectionState || pc.iceConnectionState;
+    if (st === "new" || st === "checking" || st === "connecting") {
+      if (!stuckSince) stuckSince = Date.now();
+      if (Date.now() - stuckSince > 15000) resetPeer();
+    } else {
+      stuckSince = 0;
+    }
+  }, 1000);
+
   setInterval(function(){
     if (rv.paused && rv.srcObject) rv.play().catch(function(){});
   }, 1000);
 
-  // Auto-reload if no video after 45 seconds
   setInterval(function(){
     if (!gotVideo && Date.now() - lastVideoTime > 45000) location.reload();
   }, 5000);
 
-  function retry(){
-    if (!gotVideo) { sigSend({from:viewerId, to:"sender", type:"join"}); setTimeout(retry, 3000); }
-  }
-  sigSend({from:viewerId, to:"sender", type:"join"});
-  setTimeout(retry, 3000);
+  setInterval(function(){
+    if (!hasOffer) sigSend({from:viewerId, to:"sender", type:"join"});
+  }, 3000);
 
   sigPoll(function(body){
     if (!body) return;
     if (body.to !== viewerId && body.to !== "*") return;
+
     if (body.type === "offer") {
-      if (pc.currentRemoteDescription) return;
+      hasOffer = true;
+      var st = pc.connectionState || pc.iceConnectionState;
+      var healthy = (st === "connected" || st === "completed" || st === "checking" || st === "connecting");
+      if (pc.currentRemoteDescription && healthy) return;
+      if (pc.currentRemoteDescription) {
+        try { pc.close(); } catch(e){}
+        pc = new RTCPeerConnection({ iceServers: ICE });
+        attachHandlers(pc);
+      }
+      stuckSince = Date.now();
       pc.setRemoteDescription(body.data)
       .then(function(){ return pc.createAnswer(); })
       .then(function(ans){ return pc.setLocalDescription(ans).then(function(){
         sigSend({from:viewerId, to:"sender", type:"answer", data:{type:ans.type, sdp:ans.sdp}});
       }); })
       .catch(function(){});
+
     } else if (body.type === "scandidate") {
-      pc.addIceCandidate(body.data).catch(function(){});
+      if (pc.remoteDescription) pc.addIceCandidate(body.data).catch(function(){});
     }
   });
 }

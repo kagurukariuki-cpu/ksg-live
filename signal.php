@@ -24,8 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = $data['next']++;
     $data['msgs'][] = ['id' => $id, 'body' => $parsed];
 
-    // Keep last 500 messages (allows many simultaneous viewers)
-    if (count($data['msgs']) > 500) $data['msgs'] = array_slice($data['msgs'], -250);
+    if (count($data['msgs']) > 2000) $data['msgs'] = array_slice($data['msgs'], -1000);
 
     ftruncate($fp, 0); rewind($fp);
     fwrite($fp, json_encode($data));
@@ -40,9 +39,8 @@ foreach ($data['msgs'] as $m) {
     if ($m['id'] > $since) $result[] = $m;
 }
 
-// Auto-cleanup: if file has grown, trim to last 250
-if (count($data['msgs']) > 250) {
-    $data['msgs'] = array_slice($data['msgs'], -100);
+if (count($data['msgs']) > 1000) {
+    $data['msgs'] = array_slice($data['msgs'], -500);
     ftruncate($fp, 0); rewind($fp);
     fwrite($fp, json_encode($data));
 }
