@@ -21,12 +21,13 @@ select,input{width:100%;padding:16px;font-size:16px;border:2px solid #2a2a2a;bor
 .hidden{display:none}
 #rv{width:100vw;height:100vh;object-fit:contain;background:#000;display:block}
 #viewer{position:fixed;top:0;left:0;right:0;bottom:0;background:#000}
-#status{position:fixed;bottom:12px;left:12px;background:rgba(0,0,0,.75);padding:8px 14px;border-radius:8px;font:12px monospace;z-index:20;color:#fff;max-width:60vw}
+#status{position:fixed;bottom:12px;left:12px;background:rgba(0,0,0,.8);padding:8px 14px;border-radius:8px;font:12px monospace;z-index:30;color:#fff;max-width:70vw;word-break:break-all}
 #controls{position:fixed;top:12px;right:12px;display:flex;gap:8px;background:rgba(0,0,0,.75);padding:8px;border-radius:8px;z-index:10;align-items:center}
 #controls button{padding:8px 14px;border:0;border-radius:6px;background:#c9a227;color:#0f0f0f;font-weight:700;cursor:pointer}
 #controls input{width:90px;margin:0}
 #exitBtn{position:fixed;top:12px;left:12px;background:#8a0000;color:#fff;padding:8px 14px;border-radius:8px;font-weight:700;text-decoration:none;z-index:11}
-#waiting{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;z-index:5;flex-direction:column;gap:12px;font-size:20px;padding:20px;text-align:center}
+#waiting{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;z-index:5;flex-direction:column;gap:12px;font-size:20px;padding:20px;text-align:center;pointer-events:none}
+#waiting.gone{display:none}
 #preview{position:fixed;bottom:16px;right:16px;width:240px;border:2px solid #c9a227;border-radius:8px;z-index:50;background:#000}
 #preview video{width:100%;display:block}
 .linkbox{background:#0f0f0f;border:1px dashed #c9a227;border-radius:8px;padding:12px;margin-top:20px;font:11px monospace;word-break:break-all;color:#8a8578}
@@ -108,6 +109,7 @@ var peers = {};
 var senderPollStarted = false;
 var senderCombined = null;
 var heartbeatTimer = null;
+var lastSigType = "—";
 
 function $(id){ return document.getElementById(id); }
 
@@ -204,6 +206,7 @@ function sigPoll(handler){
       if (Array.isArray(arr)) {
         for (var i = 0; i < arr.length; i++) {
           sigSince = Math.max(sigSince, arr[i].id);
+          if (arr[i].body && arr[i].body.type) lastSigType = arr[i].body.type;
           try { handler(arr[i].body); } catch(e) {}
         }
       }
@@ -241,17 +244,12 @@ function setupSender(){
     })
     .then(function(res){
       var combined = new MediaStream();
-
-      var vidTracks = res.display.getVideoTracks();
-      vidTracks.forEach(function(t){ combined.addTrack(t); });
-
-      // Only ONE audio track: mic if available, otherwise system audio
+      res.display.getVideoTracks().forEach(function(t){ combined.addTrack(t); });
       if (res.mic && res.mic.getAudioTracks().length) {
         res.mic.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
       } else if (res.display.getAudioTracks().length) {
         res.display.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
       }
-
       senderCombined = combined;
 
       $("pv").srcObject = combined;
@@ -260,7 +258,6 @@ function setupSender(){
       streaming = true;
       $("muteBtn").disabled = !res.mic;
       $("startBtn").textContent = "Sharing...";
-
       $("senderInfo").textContent =
         "Tracks: " + combined.getVideoTracks().length + " video, " +
         combined.getAudioTracks().length + " audio";
@@ -287,9 +284,7 @@ function setupSender(){
         var peer = new RTCPeerConnection({ iceServers: ICE });
         peers[vid] = peer;
         updateViewerCount();
-
         stream.getTracks().forEach(function(t){ peer.addTrack(t, stream); });
-
         peer.onicecandidate = function(e){
           if (e.candidate) sigSend({from:"sender", to:vid, type:"scandidate", data:e.candidate});
         };
@@ -327,14 +322,11 @@ function setupViewer(){
   var rv = $("rv");
   var muted = true;
   var gotVideo = false;
-  var lastVideoTime = 0;
+  var lastVideoTime = Date.now();
 
-  // Autoplay enforcement: retry play() until the video is really running
-  var playTimer = setInterval(function(){
-    if (rv.paused && rv.srcObject) {
-      rv.play().catch(function(){});
-    }
-  }, 1000);
+  function hideWaiting(){
+    $("waiting").classList.add("gone");
+  }
 
   document.addEventListener("click", function(){
     if (muted) {
@@ -370,11 +362,7 @@ function setupViewer(){
 
   pc.ontrack = function(e){
     rv.srcObject = e.streams[0];
-    $("waiting").classList.add("hidden");
     rv.play().catch(function(){});
-    if (e.track && e.track.kind === "video") {
-      gotVideo = true;
-    }
     lastVideoTime = Date.now();
   };
 
@@ -385,30 +373,43 @@ function setupViewer(){
   pc.onconnectionstatechange = function(){
     var st = pc.connectionState;
     if (st === "failed" || st === "disconnected" || st === "closed") {
-      $("waiting").classList.remove("hidden");
+      $("waiting").classList.remove("gone");
       $("waitText").textContent = "Reconnecting...";
     }
   };
 
+  // Main loop: watch videoWidth, hide overlay when real frames arrive
   setInterval(function(){
     var v = $("rv");
+    var vw = v.videoWidth || 0;
+    var vh = v.videoHeight || 0;
+    if (vw > 0 && vh > 0 && v.readyState >= 2) {
+      gotVideo = true;
+      hideWaiting();
+      lastVideoTime = Date.now();
+    }
     $("status").textContent =
       "PC:" + pc.connectionState +
       " ICE:" + pc.iceConnectionState +
       " RS:" + v.readyState +
-      " " + v.videoWidth + "x" + v.videoHeight;
-  }, 1500);
+      " " + vw + "x" + vh +
+      " sig:" + sigSince +
+      " last:" + lastSigType;
+  }, 500);
 
-  // Auto-reload if we never got video after 35 seconds
+  // Retry play every second (autoplay enforcement)
   setInterval(function(){
-    if (!gotVideo && Date.now() - lastVideoTime > 35000) location.reload();
+    if (rv.paused && rv.srcObject) rv.play().catch(function(){});
+  }, 1000);
+
+  // Auto-reload if no video after 45 seconds
+  setInterval(function(){
+    if (!gotVideo && Date.now() - lastVideoTime > 45000) location.reload();
   }, 5000);
 
-  // Keep retrying join every 3 seconds
   function retry(){
     if (!gotVideo) { sigSend({from:viewerId, to:"sender", type:"join"}); setTimeout(retry, 3000); }
   }
-  lastVideoTime = Date.now();
   sigSend({from:viewerId, to:"sender", type:"join"});
   setTimeout(retry, 3000);
 
