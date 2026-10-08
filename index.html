@@ -26,7 +26,7 @@ select,input{width:100%;padding:16px;font-size:16px;border:2px solid #2a2a2a;bor
 #controls button{padding:8px 14px;border:0;border-radius:6px;background:#c9a227;color:#0f0f0f;font-weight:700;cursor:pointer}
 #controls input{width:90px;margin:0}
 #exitBtn{position:fixed;top:12px;left:12px;background:#8a0000;color:#fff;padding:8px 14px;border-radius:8px;font-weight:700;text-decoration:none;z-index:11}
-#waiting{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;z-index:5;flex-direction:column;gap:12px;font-size:20px}
+#waiting{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;background:#000;color:#888;z-index:5;flex-direction:column;gap:12px;font-size:20px;padding:20px;text-align:center}
 #preview{position:fixed;bottom:16px;right:16px;width:240px;border:2px solid #c9a227;border-radius:8px;z-index:50;background:#000}
 #preview video{width:100%;display:block}
 .linkbox{background:#0f0f0f;border:1px dashed #c9a227;border-radius:8px;padding:12px;margin-top:20px;font:11px monospace;word-break:break-all;color:#8a8578}
@@ -108,6 +108,7 @@ var peers = {};
 var senderPollStarted = false;
 var senderCombined = null;
 var heartbeatTimer = null;
+var viewerWatchdog = null;
 
 function $(id){ return document.getElementById(id); }
 
@@ -120,10 +121,10 @@ function enterRoom(){
 
 function loadRooms(){
   var sel = $("roomSel");
-  sel.innerHTML = "";
   fetch("rooms.php?t=" + Date.now())
   .then(function(r){ return r.json(); })
   .then(function(list){
+    sel.innerHTML = "";
     if (Array.isArray(list) && list.length) {
       list.forEach(function(n){
         var o = document.createElement("option");
@@ -133,6 +134,9 @@ function loadRooms(){
       $("noRooms").classList.add("hidden");
     } else {
       $("noRooms").classList.remove("hidden");
+      var o = document.createElement("option");
+      o.value = ""; o.textContent = "— no live rooms —";
+      sel.appendChild(o);
     }
   })
   .catch(function(){
@@ -155,6 +159,18 @@ function startHeartbeat(){
   heartbeatTimer = setInterval(function(){
     if (streaming) announceLive();
   }, 5000);
+}
+
+function pickH264(transceiver){
+  try {
+    if (!transceiver || !transceiver.setCodecPreferences) return;
+    var caps = RTCRtpSender.getCapabilities("video");
+    if (!caps || !caps.codecs) return;
+    var preferred = caps.codecs.filter(function(c){
+      return c.mimeType === "video/H264";
+    });
+    if (preferred.length) transceiver.setCodecPreferences(preferred);
+  } catch(e) {}
 }
 
 if (!ROLE) {
@@ -188,7 +204,7 @@ if (!ROLE) {
 function sigUrl(extra){ return "signal.php?channel=" + encodeURIComponent(ROOM) + (extra || ""); }
 
 function sigSend(obj){
-  fetch(sigUrl(""), {
+  return fetch(sigUrl(""), {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify(obj)
@@ -241,7 +257,10 @@ function setupSender(){
     })
     .then(function(res){
       var combined = new MediaStream();
-      res.display.getVideoTracks().forEach(function(t){ combined.addTrack(t); });
+      res.display.getVideoTracks().forEach(function(t){
+        try { t.contentHint = "detail"; } catch(e) {}
+        combined.addTrack(t);
+      });
       res.display.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
       if (res.mic) res.mic.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
       senderCombined = combined;
@@ -274,7 +293,12 @@ function setupSender(){
         var peer = new RTCPeerConnection({ iceServers: ICE });
         peers[vid] = peer;
         updateViewerCount();
-        stream.getTracks().forEach(function(t){ peer.addTrack(t, stream); });
+
+        stream.getTracks().forEach(function(t){
+          var tr = peer.addTransceiver(t, { streams: [stream], direction: "sendonly" });
+          if (t.kind === "video") pickH264(tr);
+        });
+
         peer.onicecandidate = function(e){
           if (e.candidate) sigSend({from:"sender", to:vid, type:"scandidate", data:e.candidate});
         };
@@ -310,6 +334,8 @@ function setupSender(){
 function setupViewer(){
   var rv = $("rv");
   var muted = true;
+  var gotVideo = false;
+  var lastFrame = Date.now();
 
   document.addEventListener("click", function(){
     if (muted) {
@@ -343,10 +369,15 @@ function setupViewer(){
 
   pc = new RTCPeerConnection({ iceServers: ICE });
 
+  pc.addTransceiver("video", { direction: "recvonly" });
+  pc.addTransceiver("audio", { direction: "recvonly" });
+
   pc.ontrack = function(e){
     rv.srcObject = e.streams[0];
     $("waiting").classList.add("hidden");
     rv.play().catch(function(){});
+    gotVideo = true;
+    lastFrame = Date.now();
   };
 
   pc.onicecandidate = function(e){
@@ -358,20 +389,36 @@ function setupViewer(){
     if (st === "failed" || st === "disconnected" || st === "closed") {
       $("waiting").classList.remove("hidden");
       $("waitText").textContent = "Reconnecting...";
+      gotVideo = false;
     }
   };
 
   setInterval(function(){
-    var v = $("rv");
-    $("status").textContent = "PC:" + pc.connectionState + " ICE:" + pc.iceConnectionState + " RS:" + v.readyState;
+    $("status").textContent = "PC:" + pc.connectionState + " ICE:" + pc.iceConnectionState + " RS:" + rv.readyState;
   }, 1500);
 
+  // Watchdog: if no video for 25s, reload the page (fixes stuck TVs/phones)
+  viewerWatchdog = setInterval(function(){
+    if (!gotVideo && Date.now() - lastFrame > 25000) {
+      location.reload();
+    }
+  }, 5000);
+
+  // Retry the join every 4 seconds until the stream arrives
+  function retryJoin(){
+    if (!gotVideo) {
+      sigSend({from:viewerId, to:"sender", type:"join"});
+      setTimeout(retryJoin, 4000);
+    }
+  }
   sigSend({from:viewerId, to:"sender", type:"join"});
+  setTimeout(retryJoin, 4000);
 
   sigPoll(function(body){
     if (!body) return;
     if (body.to !== viewerId && body.to !== "*") return;
     if (body.type === "offer") {
+      if (pc.currentRemoteDescription) return;
       pc.setRemoteDescription(body.data)
       .then(function(){ return pc.createAnswer(); })
       .then(function(ans){ return pc.setLocalDescription(ans).then(function(){
