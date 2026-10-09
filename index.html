@@ -388,11 +388,14 @@ function setupViewer(){
       hideWaiting();
       lastVideoTime = Date.now();
     }
-    $("status").textContent =
+       $("status").textContent =
       "PC:" + pc.connectionState +
       " ICE:" + pc.iceConnectionState +
       " RS:" + v.readyState +
       " " + vw + "x" + vh +
+      " mute:" + (rv.muted ? "Y" : "N") +
+      " vol:" + rv.volume +
+      " recv:" + (pc.getReceivers ? pc.getReceivers().filter(function(r){ return r.track; }).length : "?") +
       " sig:" + sigSince +
       " last:" + lastSigType;
   }, 500);
