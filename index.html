@@ -94,11 +94,10 @@ var ROOM = params.get("room") || "";
 var viewerId = "v" + Math.random().toString(36).slice(2,10);
 
 var ICE = [
-  {urls:"stun:stun.relay.metered.ca:80"},
-  {urls:"turn:global.relay.metered.ca:80",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"},
-  {urls:"turn:global.relay.metered.ca:80?transport=tcp",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"},
-  {urls:"turn:global.relay.metered.ca:443",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"},
-  {urls:"turns:global.relay.metered.ca:443?transport=tcp",username:"4d1ca704b0f914411fa1aa74",credential:"gaqQqC3Rzh3RAi0b"}
+  {urls:"stun:stun.l.google.com:19302"},
+  {urls:"stun:stun1.l.google.com:19302"},
+  {urls:"stun:stun2.l.google.com:19302"},
+  {urls:"stun:stun3.l.google.com:19302"}
 ];
 
 var sigSince = 0;
