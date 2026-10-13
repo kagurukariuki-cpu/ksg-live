@@ -224,11 +224,11 @@ function updateViewerCount(){
 }
 
 function setupSender(){
+  var micGain = null;
+
   $("muteBtn").onclick = function(){
     micMuted = !micMuted;
-    if (senderCombined) {
-      senderCombined.getAudioTracks().forEach(function(t){ t.enabled = !micMuted; });
-    }
+    if (micGain) micGain.gain.value = micMuted ? 0 : 1;
     $("muteBtn").textContent = micMuted ? "Unmute Mic" : "Mute Mic";
   };
 
@@ -243,12 +243,39 @@ function setupSender(){
       .catch(function(){ return { display: display, mic: null }; });
     })
     .then(function(res){
-      var combined = new MediaStream();
+            var combined = new MediaStream();
       res.display.getVideoTracks().forEach(function(t){ combined.addTrack(t); });
-      if (res.mic && res.mic.getAudioTracks().length) {
-        res.mic.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
-      } else if (res.display.getAudioTracks().length) {
-        res.display.getAudioTracks().forEach(function(t){ combined.addTrack(t); });
+
+      var micTrack = (res.mic && res.mic.getAudioTracks().length) ? res.mic.getAudioTracks()[0] : null;
+      var sysTrack = (res.display.getAudioTracks().length) ? res.display.getAudioTracks()[0] : null;
+
+      if (micTrack || sysTrack) {
+        try {
+          var mixCtx = new (window.AudioContext || window.webkitAudioContext)();
+          if (mixCtx.state === "suspended" && mixCtx.resume) mixCtx.resume();
+          var dest = mixCtx.createMediaStreamDestination();
+
+          if (sysTrack) {
+            var sysSrc = mixCtx.createMediaStreamSource(new MediaStream([sysTrack]));
+            var sysGain = mixCtx.createGain();
+            sysGain.gain.value = 1.0;
+            sysSrc.connect(sysGain);
+            sysGain.connect(dest);
+          }
+          if (micTrack) {
+            var micSrc = mixCtx.createMediaStreamSource(new MediaStream([micTrack]));
+            micGain = mixCtx.createGain();
+            micGain.gain.value = micMuted ? 0 : 1.0;
+            micSrc.connect(micGain);
+            micGain.connect(dest);
+          }
+
+          var mixed = dest.stream.getAudioTracks()[0];
+          if (mixed) combined.addTrack(mixed);
+        } catch(e) {
+          if (sysTrack) combined.addTrack(sysTrack);
+          else if (micTrack) combined.addTrack(micTrack);
+        }
       }
       senderCombined = combined;
 
